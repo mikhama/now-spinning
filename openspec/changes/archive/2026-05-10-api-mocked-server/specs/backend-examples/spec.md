@@ -1,6 +1,5 @@
-## Purpose
-Provide backend examples demonstrating NFC library usage.
-## Requirements
+## MODIFIED Requirements
+
 ### Requirement: Backend main with NFC examples
 The NFC demo from `backend/main.py` SHALL be moved to `exp/nfc_test.py`. The `api/main.py` file SHALL serve as the new Flask API server entry point.
 
@@ -11,4 +10,3 @@ The NFC demo from `backend/main.py` SHALL be moved to `exp/nfc_test.py`. The `ap
 #### Scenario: Run API server
 - **WHEN** the user runs `python -m api.main`
 - **THEN** the application SHALL start a Flask HTTP server with REST and WebSocket endpoints
-

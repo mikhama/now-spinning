@@ -1,17 +1,45 @@
 # now-spinning
 Hobby project with Raspberry Pi.
 
+## Prerequisites
+
+To create a virtual environment:
+```bash
+python -m venv env
+```
+
+To activate the virtual environment:
+```bash
+source env/bin/activate
+```
+
+To deactivate the virtual environment:
+```bash
+deactivate
+```
+
+To install dependencies:
+```bash
+pip install -r requirements.in
+```
+
 ## Usage
+
 To run the app on Pi:
 ```bash
-python -m backend.main
+python -m api.main
 ```
 
 ## Development
 
 To run the app in boardless mode:
 ```bash
-BOARDLESS_MODE=true python -m backend.main
+BOARDLESS_MODE=true python -m api.main
+```
+
+To run the NFC demo in boardless mode:
+```bash
+BOARDLESS_MODE=true python -m exp.nfc_test
 ```
 
 ## Utils
