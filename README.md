@@ -1,6 +1,12 @@
 # now-spinning
 Hobby project with Raspberry Pi.
 
+## Development
+
+To run the app in boardless mode:
+```bash
+BOARDLESS_MODE=true python -m backend.main
+```
 
 ## Utils
 
