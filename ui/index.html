@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=800, height=480, initial-scale=1.0, user-scalable=no">
+    <title>Now Spinning</title>
+    <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+    <header id="top-bar">
+        <div id="mode-label">Mode: Standby</div>
+        <div id="stylus-info">
+            <span id="stylus-hours-display"></span>
+        </div>
+    </header>
+
+    <main id="content">
+        <!-- Standby mode -->
+        <section id="mode-standby" class="mode-section">
+            <div class="split-grid" id="standby-grid">
+                <div class="cover-col">
+                    <img id="standby-cover" class="cover-image" alt="Cover">
+                </div>
+                <div class="info-col">
+                    <div id="standby-id" class="record-id"></div>
+                    <div id="standby-artist" class="record-artist"></div>
+                    <div id="standby-title" class="record-title"></div>
+                </div>
+            </div>
+            <div class="split-grid" id="standby-error-grid" style="display:none">
+                <div class="cover-col">
+                    <div class="cover-placeholder">
+                        <span class="cover-placeholder-text">NFC Reading Error</span>
+                    </div>
+                </div>
+                <div class="info-col"></div>
+            </div>
+            <div class="split-grid" id="standby-not-found-grid" style="display:none">
+                <div class="cover-col">
+                    <div class="cover-placeholder">
+                        <span class="cover-placeholder-text">Record Not Found</span>
+                    </div>
+                </div>
+                <div class="info-col"></div>
+            </div>
+        </section>
+
+        <!-- Play mode -->
+        <section id="mode-play" class="mode-section">
+            <div class="split-grid">
+                <div class="cover-col">
+                    <img id="play-cover" class="cover-image" alt="Cover">
+                </div>
+                <div class="info-col">
+                    <div id="play-id" class="record-id"></div>
+                    <div id="play-artist" class="record-artist"></div>
+                    <div id="play-title" class="record-title"></div>
+                    <div id="play-track" class="now-playing"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Link mode -->
+        <section id="mode-link" class="mode-section">
+            <div class="split-grid">
+                <div class="cover-col">
+                    <img id="link-cover" class="cover-image" alt="Cover">
+                </div>
+                <div class="info-col">
+                    <div id="link-id" class="record-id"></div>
+                    <div id="link-artist" class="record-artist"></div>
+                    <div id="link-title" class="record-title"></div>
+                    <div id="link-status" class="link-status"></div>
+                    <div id="link-error" class="error-state">Link Error</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Re-Link mode -->
+        <section id="mode-re-link" class="mode-section">
+            <div class="split-grid">
+                <div class="cover-col">
+                    <img id="re-link-cover" class="cover-image" alt="Cover">
+                </div>
+                <div class="info-col">
+                    <div id="re-link-id" class="record-id"></div>
+                    <div id="re-link-artist" class="record-artist"></div>
+                    <div id="re-link-title" class="record-title"></div>
+                    <div id="re-link-status" class="link-status"></div>
+                    <div id="re-link-error" class="error-state">Link Error</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stylus mode -->
+        <section id="mode-stylus" class="mode-section">
+            <div id="stylus-mode-name" class="stylus-name-display"></div>
+            <div id="stylus-mode-hours" class="stylus-distance"></div>
+            <div id="stylus-empty" class="empty-state">No styli found!</div>
+        </section>
+    </main>
+
+    <footer id="action-bar">
+        <!-- Standby actions -->
+        <div id="actions-standby" class="action-group">
+            <div class="btn-placeholder"></div>
+            <button id="btn-mode-standby" class="btn">Mode</button>
+            <button id="btn-side-standby" class="btn">Side A</button>
+            <div class="btn-placeholder"></div>
+        </div>
+
+        <!-- Play actions -->
+        <div id="actions-play" class="action-group">
+            <button id="btn-prev-song" class="btn">&lt;Prev</button>
+            <div class="btn-placeholder"></div>
+            <button id="btn-side-label" class="btn">Side A</button>
+            <button id="btn-next-song" class="btn">Next&gt;</button>
+        </div>
+
+        <!-- Link actions -->
+        <div id="actions-link" class="action-group">
+            <button id="btn-prev-record" class="btn">&lt;Prev</button>
+            <button id="btn-mode-link" class="btn">Mode</button>
+            <button id="btn-link" class="btn">Link</button>
+            <button id="btn-next-record" class="btn">Next&gt;</button>
+        </div>
+
+        <!-- Re-Link actions -->
+        <div id="actions-re-link" class="action-group">
+            <button id="btn-prev-re-link" class="btn">&lt;Prev</button>
+            <button id="btn-mode-re-link" class="btn">Mode</button>
+            <button id="btn-re-link" class="btn">Re-Link</button>
+            <button id="btn-next-re-link" class="btn">Next&gt;</button>
+        </div>
+
+        <!-- Stylus actions -->
+        <div id="actions-stylus" class="action-group">
+            <button id="btn-prev-stylus" class="btn">&lt;Prev</button>
+            <button id="btn-mode-stylus" class="btn">Mode</button>
+            <button id="btn-reset-stylus" class="btn">Reset</button>
+            <button id="btn-next-stylus" class="btn">Next&gt;</button>
+        </div>
+    </footer>
+
+    <script src="/app.js"></script>
+</body>
+</html>

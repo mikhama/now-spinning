@@ -42,6 +42,17 @@ To run the NFC demo in boardless mode:
 BOARDLESS_MODE=true python -m exp.nfc_test
 ```
 
+To debug all views:
+- http://127.0.0.1:5000/#standby
+- http://127.0.0.1:5000/#standby-error
+- http://127.0.0.1:5000/#standby-not-found
+- http://127.0.0.1:5000/#play
+- http://127.0.0.1:5000/#link
+- http://127.0.0.1:5000/#link-error
+- http://127.0.0.1:5000/#re-link
+- http://127.0.0.1:5000/#stylus
+- http://127.0.0.1:5000/#stylus-error
+
 ## Utils
 
 To read NFC tag:

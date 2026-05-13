@@ -5,8 +5,13 @@ from flask_sock import Sock
 
 from api.mock_data import RECORDS, STYLI
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder="../ui", static_url_path="")
 sock = Sock(app)
+
+
+@app.route("/")
+def index():
+    return app.send_static_file("index.html")
 
 
 # ---------------------------------------------------------------------------
