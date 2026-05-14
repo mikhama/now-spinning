@@ -1,0 +1,1025 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Design System — My Musical Journey</title>
+<style>
+/*
+  ═══════════════════════════════════════════════════════════════════════════════
+  DESIGN SYSTEM REFERENCE
+  ═══════════════════════════════════════════════════════════════════════════════
+
+  This file documents the visual design language used in "My Musical Journey".
+  It is intended as a reference for a front-end developer building a new UI
+  (e.g. Raspberry Pi embedded display) based on this aesthetic.
+
+  DESIGN PHILOSOPHY:
+  - Vintage newspaper / vinyl record catalog aesthetic
+  - Warm paper tones with ink-like typography
+  - Monospace metadata + serif display headings
+  - Subtle grain texture overlay for tactile feel
+  - Amber/rust accent color palette
+  - Strong typographic hierarchy through font variety
+
+  KEY CHARACTERISTICS:
+  - No bright/saturated colors — muted, warm palette
+  - Heavy use of uppercase + letter-spacing for labels
+  - Borders are used as structural dividers (newspaper column style)
+  - Asymmetric layouts (alternating left/right)
+  - Minimal use of rounded corners (only vinyl record elements)
+*/
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SECTION 1: FONTS
+   ═══════════════════════════════════════════════════════════════════════════════
+
+   Three font families are used:
+
+   1. "Gloock" (serif, weight 400)
+      - Role: Display headings, large numbers, decorative drop caps
+      - Usage: Page title, entry numbers, artist names, stat values
+      - Character: Bold serif with vintage editorial feel
+      - Google Fonts: https://fonts.google.com/specimen/Gloock
+
+   2. "Fraunces" (serif, weights 400–900, also italic 400–700)
+      - Role: Body text, subtitles, italic annotations, taglines
+      - Usage: Main body copy, album titles (italic), notes, signoff
+      - Character: Soft old-style serif, warm and readable
+      - Google Fonts: https://fonts.google.com/specimen/Fraunces
+
+   3. "DM Mono" (monospace, weights 400, 500)
+      - Role: Metadata, labels, navigation, small caps utility text
+      - Usage: Dates, catalog numbers, stat labels, nav items, eyebrows
+      - Character: Clean monospace, used uppercase with wide letter-spacing
+      - Google Fonts: https://fonts.google.com/specimen/DM+Mono
+
+   Font files are self-hosted as .woff2 (latin + latin-ext subsets).
+   font-display: block is used to avoid layout shift.
+*/
+
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(ui/fonts/dm-mono-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(ui/fonts/dm-mono-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url(ui/fonts/dm-mono-500-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'DM Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url(ui/fonts/dm-mono-500-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: block;
+  src: url(ui/fonts/fraunces-normal-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 400 900;
+  font-display: block;
+  src: url(ui/fonts/fraunces-normal-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: block;
+  src: url(ui/fonts/fraunces-italic-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Fraunces';
+  font-style: italic;
+  font-weight: 400 700;
+  font-display: block;
+  src: url(ui/fonts/fraunces-italic-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: 'Gloock';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(ui/fonts/gloock-400-latin-ext.woff2) format('woff2');
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+  font-family: 'Gloock';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(ui/fonts/gloock-400-latin.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SECTION 2: COLOR PALETTE (CSS Custom Properties)
+   ═══════════════════════════════════════════════════════════════════════════════
+
+   --paper: #efe6d4        Main background — warm aged paper
+   --paper-dark: #e4d9c0   Slightly darker paper for subtle contrast areas
+   --cream: #f5ecd8        Lighter paper variant (used inside sleeve art bg)
+
+   --ink: #1a1410          Primary text — very dark warm brown (not pure black)
+   --ink-soft: #3a2e24     Secondary text — softer brown for body copy
+   --ink-mute: #6b5c4a     Tertiary text — muted for labels, metadata
+
+   --amber: #b8612b        Accent — warm amber/rust (record label, highlights)
+   --amber-deep: #8a3f15   Accent dark — deep rust (titles, active states, borders)
+
+   --vinyl: #0d0a08        Near-black (vinyl record surface)
+   --gold: #b8944a         Decorative gold (used sparingly)
+   --red-ink: #9a2e1f      Red ink accent (rarely used, for emphasis)
+*/
+
+:root {
+  --paper: #efe6d4;
+  --paper-dark: #e4d9c0;
+  --ink: #1a1410;
+  --ink-soft: #3a2e24;
+  --ink-mute: #6b5c4a;
+  --amber: #b8612b;
+  --amber-deep: #8a3f15;
+  --vinyl: #0d0a08;
+  --gold: #b8944a;
+  --cream: #f5ecd8;
+  --red-ink: #9a2e1f;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 17px;
+  line-height: 1.6;
+  min-height: 100vh;
+  /* Background has two subtle radial gradients for warmth variation */
+  background-image:
+    radial-gradient(ellipse at 15% 10%, rgba(184,97,43,0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 85%, rgba(26,20,16,0.05) 0%, transparent 50%);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SECTION 3: BACKGROUND TEXTURE (Paper Grain)
+   ═══════════════════════════════════════════════════════════════════════════════
+
+   A fixed full-screen pseudo-element creates a subtle paper grain texture
+   using an inline SVG with feTurbulence (fractalNoise).
+
+   Properties:
+   - Fixed position, covers entire viewport
+   - opacity: 0.35
+   - mix-blend-mode: multiply (darkens subtly)
+   - pointer-events: none (doesn't interfere with clicks)
+   - z-index: 1 (above body bg, below content at z-index: 2)
+
+   The SVG noise parameters:
+   - type: fractalNoise
+   - baseFrequency: 0.9 (fine grain)
+   - numOctaves: 3
+   - Color matrix tints it warm brown: rgb(0.1, 0.07, 0.05) at 50% alpha
+*/
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 1;
+  opacity: 0.35;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.07 0 0 0 0 0.05 0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  mix-blend-mode: multiply;
+}
+
+/* All content sections use z-index: 2 to sit above the grain overlay */
+
+/* ═══════════════════════════════════════════════════════════════════════════════
+   SECTION 4: DESIGN SYSTEM SHOWCASE LAYOUT
+   ═══════════════════════════════════════════════════════════════════════════════ */
+
+.ds-page {
+  position: relative;
+  z-index: 2;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 64px 48px;
+}
+.ds-section {
+  margin-bottom: 96px;
+}
+.ds-section__title {
+  font-family: 'Gloock', serif;
+  font-size: 2.4rem;
+  color: var(--ink);
+  margin-bottom: 12px;
+  line-height: 1;
+}
+.ds-section__desc {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  color: var(--ink-soft);
+  margin-bottom: 40px;
+  max-width: 50em;
+}
+.ds-subsection {
+  margin-bottom: 48px;
+}
+.ds-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.25em;
+  color: var(--ink-mute);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ink-soft);
+}
+
+/* Color swatches */
+.ds-colors {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+.ds-swatch {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ink-soft);
+}
+.ds-swatch__color {
+  height: 80px;
+}
+.ds-swatch__info {
+  padding: 10px 12px;
+  background: var(--cream);
+}
+.ds-swatch__name {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--ink);
+}
+.ds-swatch__hex {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-mute);
+  margin-top: 2px;
+}
+.ds-swatch__role {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+  margin-top: 4px;
+}
+
+/* Font specimens */
+.ds-font-specimen {
+  margin-bottom: 32px;
+  padding: 24px;
+  border: 1px solid var(--ink-soft);
+  background: var(--cream);
+}
+.ds-font-specimen__name {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--amber-deep);
+  margin-bottom: 12px;
+}
+.ds-font-specimen__sample--gloock {
+  font-family: 'Gloock', serif;
+  font-size: 3rem;
+  line-height: 1.1;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.ds-font-specimen__sample--fraunces {
+  font-family: 'Fraunces', serif;
+  font-size: 1.5rem;
+  line-height: 1.4;
+  color: var(--ink);
+  margin-bottom: 8px;
+}
+.ds-font-specimen__sample--fraunces-italic {
+  font-family: 'Fraunces', serif;
+  font-style: italic;
+  font-size: 1.3rem;
+  line-height: 1.4;
+  color: var(--ink-soft);
+  margin-bottom: 8px;
+}
+.ds-font-specimen__sample--mono {
+  font-family: 'DM Mono', monospace;
+  font-size: 0.85rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--ink-soft);
+}
+.ds-font-specimen__detail {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--ink-mute);
+  margin-top: 12px;
+  line-height: 1.8;
+}
+
+/* Border examples */
+.ds-borders {
+  display: flex;
+  flex-direction: column;
+  gap: 32px;
+}
+.ds-border-example {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+.ds-border-example__visual {
+  width: 200px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.ds-border-example__info {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-soft);
+  line-height: 1.8;
+}
+
+/* Spacing examples */
+.ds-spacing {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.ds-spacing__item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.ds-spacing__bar {
+  height: 20px;
+  background: var(--amber);
+  opacity: 0.3;
+}
+.ds-spacing__label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--ink-mute);
+  white-space: nowrap;
+}
+</style>
+</head>
+<body>
+
+<div class="ds-page">
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       HEADER
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <header style="margin-bottom: 72px; padding-bottom: 32px; border-bottom: 2px solid var(--ink);">
+    <div style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--ink-mute); margin-bottom: 16px;">Design System Reference</div>
+    <h1 style="font-family: 'Gloock', serif; font-size: clamp(2.5rem, 6vw, 4.5rem); font-weight: 400; line-height: 0.9; letter-spacing: -0.03em; color: var(--ink);">My Musical <em style="font-family: 'Fraunces', serif; font-style: italic; font-weight: 400; color: var(--amber-deep); font-size: 0.9em;">Journey</em></h1>
+    <p style="font-family: 'Fraunces', serif; font-style: italic; color: var(--ink-soft); margin-top: 16px; max-width: 50em;">
+      Complete visual reference for adapting this design to a Raspberry Pi embedded UI.
+      Vintage newspaper aesthetic with warm paper tones, vinyl-record motifs, and strong typographic hierarchy.
+    </p>
+  </header>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION: COLOR PALETTE
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="ds-section">
+    <h2 class="ds-section__title">Color Palette</h2>
+    <p class="ds-section__desc">All colors are defined as CSS custom properties on :root. The palette is intentionally warm and muted — no pure black, no bright saturated hues.</p>
+
+    <div class="ds-label">Backgrounds</div>
+    <div class="ds-colors" style="margin-bottom: 32px;">
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #efe6d4;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--paper</div>
+          <div class="ds-swatch__hex">#efe6d4</div>
+          <div class="ds-swatch__role">Main page background</div>
+        </div>
+      </div>
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #e4d9c0;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--paper-dark</div>
+          <div class="ds-swatch__hex">#e4d9c0</div>
+          <div class="ds-swatch__role">Darker paper variant</div>
+        </div>
+      </div>
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #f5ecd8;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--cream</div>
+          <div class="ds-swatch__hex">#f5ecd8</div>
+          <div class="ds-swatch__role">Light variant (sleeve bg, panels)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ds-label">Text / Ink</div>
+    <div class="ds-colors" style="margin-bottom: 32px;">
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #1a1410;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--ink</div>
+          <div class="ds-swatch__hex">#1a1410</div>
+          <div class="ds-swatch__role">Primary text, headings</div>
+        </div>
+      </div>
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #3a2e24;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--ink-soft</div>
+          <div class="ds-swatch__hex">#3a2e24</div>
+          <div class="ds-swatch__role">Body text, borders</div>
+        </div>
+      </div>
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #6b5c4a;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--ink-mute</div>
+          <div class="ds-swatch__hex">#6b5c4a</div>
+          <div class="ds-swatch__role">Labels, metadata, captions</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="ds-label">Accents</div>
+    <div class="ds-colors" style="margin-bottom: 32px;">
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #b8612b;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--amber</div>
+          <div class="ds-swatch__hex">#b8612b</div>
+          <div class="ds-swatch__role">Warm accent, record label</div>
+        </div>
+      </div>
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #8a3f15;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--amber-deep</div>
+          <div class="ds-swatch__hex">#8a3f15</div>
+          <div class="ds-swatch__role">Primary accent (titles, active states, accent borders)</div>
+        </div>
+      </div>
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #b8944a;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--gold</div>
+          <div class="ds-swatch__hex">#b8944a</div>
+          <div class="ds-swatch__role">Decorative gold (sparingly)</div>
+        </div>
+      </div>
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #9a2e1f;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--red-ink</div>
+          <div class="ds-swatch__hex">#9a2e1f</div>
+          <div class="ds-swatch__role">Red ink for rare emphasis</div>
+        </div>
+      </div>
+      <div class="ds-swatch">
+        <div class="ds-swatch__color" style="background: #0d0a08;"></div>
+        <div class="ds-swatch__info">
+          <div class="ds-swatch__name">--vinyl</div>
+          <div class="ds-swatch__hex">#0d0a08</div>
+          <div class="ds-swatch__role">Near-black (vinyl surface)</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION: TYPOGRAPHY
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="ds-section">
+    <h2 class="ds-section__title">Typography</h2>
+    <p class="ds-section__desc">Three font families create a strong hierarchy. Display type uses Gloock, body uses Fraunces, and all metadata/utility text uses DM Mono in uppercase with wide letter-spacing.</p>
+
+    <!-- Gloock -->
+    <div class="ds-font-specimen">
+      <div class="ds-font-specimen__name">Gloock — Display / Headings</div>
+      <div class="ds-font-specimen__sample--gloock">The Vinyl Collection</div>
+      <div class="ds-font-specimen__sample--gloock" style="font-size: 2rem;">Artist Names & Numbers</div>
+      <div class="ds-font-specimen__detail">
+        Weight: 400 only<br>
+        Usage: Page masthead title (clamp 3.5rem–8.5rem), artist names (clamp 2rem–3rem),
+        entry numbers (3.2rem), stat values (2.6rem), drop caps (4.2rem), colophon title (2rem)<br>
+        letter-spacing: -0.04em (large sizes) to -0.02em (medium)<br>
+        line-height: 0.85–1.0
+      </div>
+    </div>
+
+    <!-- Fraunces -->
+    <div class="ds-font-specimen">
+      <div class="ds-font-specimen__name">Fraunces — Body / Subtitles</div>
+      <div class="ds-font-specimen__sample--fraunces">Body text at 17px with 1.6 line-height. Warm and readable for longer passages describing vinyl records and musical discoveries.</div>
+      <div class="ds-font-specimen__sample--fraunces-italic">Album titles, taglines, and notes are set in italic. "A journey through sound on wax."</div>
+      <div class="ds-font-specimen__detail">
+        Weights: 400–900 (normal), 400–700 (italic)<br>
+        Usage: Body copy (17px/1.6), album titles (italic, clamp 1.25rem–1.65rem),
+        intro headline (clamp 1.6rem–2.3rem, weight 400), notes (1.02rem with left border),
+        tagline (italic 1.05rem), signoff (italic 1.1rem)<br>
+        letter-spacing: -0.015em for headlines, default for body
+      </div>
+    </div>
+
+    <!-- DM Mono -->
+    <div class="ds-font-specimen">
+      <div class="ds-font-specimen__name">DM Mono — Metadata / Labels</div>
+      <div class="ds-font-specimen__sample--mono">CATALOG NO. · VINYL-2024-001 · AUGUST 2024</div>
+      <div class="ds-font-specimen__sample--mono" style="font-weight: 500; font-size: 12px; letter-spacing: 0.12em;">TIMELINE NAVIGATION LABELS</div>
+      <div class="ds-font-specimen__sample--mono" style="font-size: 9px; letter-spacing: 0.2em;">EYEBROW TEXT · STAT LABELS · CHAIN LINKS</div>
+      <div class="ds-font-specimen__detail">
+        Weights: 400, 500<br>
+        Usage: Always UPPERCASE with letter-spacing 0.1em–0.25em<br>
+        Sizes: 9px (smallest labels), 10px (standard metadata), 11px (eyebrows/nav), 12px (timeline month)<br>
+        Role: Dates, catalog numbers, stat labels, navigation, section eyebrows, metadata pills
+      </div>
+    </div>
+
+    <!-- Typography scale summary -->
+    <div class="ds-label" style="margin-top: 40px;">Type Scale Summary</div>
+    <div style="padding: 24px; border: 1px solid var(--ink-soft); background: var(--cream);">
+      <div style="font-family: 'Gloock', serif; font-size: clamp(3.5rem, 8vw, 5rem); line-height: 0.85; letter-spacing: -0.04em; margin-bottom: 16px;">Masthead</div>
+      <div style="font-family: 'Gloock', serif; font-size: 3rem; line-height: 1; letter-spacing: -0.02em; margin-bottom: 12px;">Artist Name</div>
+      <div style="font-family: 'Gloock', serif; font-size: 2.6rem; line-height: 1; margin-bottom: 12px;">42</div>
+      <div style="font-family: 'Fraunces', serif; font-size: clamp(1.6rem, 3vw, 2.3rem); line-height: 1.25; letter-spacing: -0.015em; margin-bottom: 12px;">Intro Headline Text</div>
+      <div style="font-family: 'Fraunces', serif; font-style: italic; font-size: 1.65rem; line-height: 1.2; color: var(--amber-deep); margin-bottom: 12px;">Album Title (italic)</div>
+      <div style="font-family: 'Fraunces', serif; font-size: 17px; line-height: 1.6; color: var(--ink-soft); margin-bottom: 12px;">Body text — the default reading size for descriptions and notes.</div>
+      <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.25em; text-transform: uppercase; color: var(--amber-deep); margin-bottom: 8px;">◆ Eyebrow Text</div>
+      <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-mute);">METADATA · LABELS · CATALOG NOS</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION: BACKGROUND & TEXTURE
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="ds-section">
+    <h2 class="ds-section__title">Background & Texture</h2>
+    <p class="ds-section__desc">The page uses a layered background system: solid paper color → radial gradient warm spots → SVG noise grain overlay.</p>
+
+    <div class="ds-label">Background Layers (bottom to top)</div>
+    <div style="display: grid; gap: 24px; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));">
+
+      <!-- Layer 1: Solid -->
+      <div style="border: 1px solid var(--ink-soft);">
+        <div style="height: 120px; background: #efe6d4;"></div>
+        <div style="padding: 12px; background: var(--cream);">
+          <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink); margin-bottom: 4px;">Layer 1: Solid Base</div>
+          <div style="font-family: 'Fraunces', serif; font-size: 0.8rem; color: var(--ink-soft);">background: var(--paper) → #efe6d4</div>
+        </div>
+      </div>
+
+      <!-- Layer 2: Radial gradients -->
+      <div style="border: 1px solid var(--ink-soft);">
+        <div style="height: 120px; background: #efe6d4; background-image: radial-gradient(ellipse at 15% 10%, rgba(184,97,43,0.08) 0%, transparent 50%), radial-gradient(ellipse at 85% 85%, rgba(26,20,16,0.05) 0%, transparent 50%);"></div>
+        <div style="padding: 12px; background: var(--cream);">
+          <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink); margin-bottom: 4px;">Layer 2: Warm Gradients</div>
+          <div style="font-family: 'Fraunces', serif; font-size: 0.8rem; color: var(--ink-soft);">Two radial-gradients: amber tint top-left (8% opacity), dark tint bottom-right (5% opacity)</div>
+        </div>
+      </div>
+
+      <!-- Layer 3: Grain -->
+      <div style="border: 1px solid var(--ink-soft);">
+        <div style="height: 120px; position: relative; background: #efe6d4; overflow: hidden;">
+          <div style="position: absolute; inset: 0; opacity: 0.35; mix-blend-mode: multiply; background-image: url(&quot;data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.1 0 0 0 0 0.07 0 0 0 0 0.05 0 0 0 0.5 0'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>&quot;);"></div>
+        </div>
+        <div style="padding: 12px; background: var(--cream);">
+          <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.15em; text-transform: uppercase; color: var(--ink); margin-bottom: 4px;">Layer 3: Paper Grain</div>
+          <div style="font-family: 'Fraunces', serif; font-size: 0.8rem; color: var(--ink-soft);">SVG feTurbulence fractalNoise, baseFreq 0.9, 3 octaves, opacity 0.35, mix-blend-mode: multiply. Fixed position, covers viewport.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION: BORDERS & DIVIDERS
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="ds-section">
+    <h2 class="ds-section__title">Borders & Dividers</h2>
+    <p class="ds-section__desc">Borders serve as structural newspaper-style dividers. No rounded corners on UI elements (only on vinyl record circles).</p>
+
+    <div class="ds-borders">
+
+      <!-- Heavy section border -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual" style="border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); padding: 16px;">
+          <span style="font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.15em;">Content</span>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>Section Divider (Heavy)</strong><br>
+          border: 2px solid var(--ink) → #1a1410<br>
+          Used: Masthead bottom, stats bar top/bottom, colophon top<br>
+          Full-width structural separator
+        </div>
+      </div>
+
+      <!-- Light separator -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual" style="border-bottom: 1px solid var(--ink-soft); padding: 16px;">
+          <span style="font-family: 'DM Mono', monospace; font-size: 10px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.15em;">Content</span>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>Content Separator (Light)</strong><br>
+          border: 1px solid var(--ink-soft) → #3a2e24<br>
+          Used: Between entries, masthead sub-sections, stat column dividers
+        </div>
+      </div>
+
+      <!-- Cover / Sleeve border -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual">
+          <div style="width: 80px; height: 80px; background: var(--cream); border: 1px solid var(--ink); box-shadow: 0 1px 0 rgba(26,20,16,0.15), 0 10px 30px rgba(26,20,16,0.25), 0 30px 50px rgba(26,20,16,0.15);"></div>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>Album Cover / Sleeve Border</strong><br>
+          border: 1px solid var(--ink) → #1a1410<br>
+          box-shadow: 0 1px 0 rgba(26,20,16,0.15),<br>
+          &nbsp;&nbsp;0 10px 30px rgba(26,20,16,0.25),<br>
+          &nbsp;&nbsp;0 30px 50px rgba(26,20,16,0.15)<br>
+          Size: 360px × 360px (aspect-ratio: 1)<br>
+          Corner decoration: 22×22px partial borders (white 35% opacity)
+        </div>
+      </div>
+
+      <!-- Entry number border -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual">
+          <!--
+            ENTRY NUMBER BOX
+            - Font: Gloock, 3.2rem (desktop), 2.6rem (mid), 2.2em (mobile)
+            - Color: var(--amber-deep) for both text and border
+            - Border: 1px solid var(--amber-deep)
+            - Padding: 10px 16px 6px (desktop), 8px 12px 5px (mid), 0.21em 0.35em 0.14em (mobile)
+            - Display: inline-block
+            - The number box is placed inside a "rail" column alongside the album sleeve
+          -->
+          <div style="font-family: 'Gloock', serif; font-size: 3.2rem; line-height: 1; color: var(--amber-deep); letter-spacing: -0.02em; display: inline-block; border: 1px solid var(--amber-deep); padding: 10px 16px 6px;">07</div>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>Entry Number Box</strong><br>
+          border: 1px solid var(--amber-deep) → #8a3f15<br>
+          padding: 10px 16px 6px (asymmetric — less on bottom)<br>
+          font: Gloock 3.2rem, color: var(--amber-deep)<br>
+          Responsive: 2.6rem/8px 12px 5px (≤1200px), 2.2em/0.21em 0.35em 0.14em (≤900px)
+        </div>
+      </div>
+
+      <!-- Note left-border -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual">
+          <div style="font-family: 'Fraunces', serif; font-size: 0.95rem; color: var(--ink-soft); padding-left: 18px; border-left: 2px solid var(--amber-deep);">A personal note about why this album matters — set with a left accent border.</div>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>Note / Quote Border</strong><br>
+          border-left: 2px solid var(--amber-deep) → #8a3f15<br>
+          padding-left: 18px<br>
+          On B-side (right-aligned): border-right instead, padding-right: 18px
+        </div>
+      </div>
+
+      <!-- Accent separator -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual">
+          <div style="width: 60px; height: 2px; background: var(--amber-deep);"></div>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>Accent Separator (Colophon)</strong><br>
+          width: 60px, height: 2px<br>
+          background: var(--amber-deep) → #8a3f15<br>
+          margin: 16px 0
+        </div>
+      </div>
+
+      <!-- Sparked/connection card border -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual">
+          <div style="display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; border: 1px solid var(--ink-soft); background: var(--paper);">
+            <span style="font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--ink-mute);">Sparked by</span>
+            <span style="font-family: 'Fraunces', serif; font-size: 0.95rem; font-style: italic; color: var(--ink);">Album</span>
+          </div>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>Connection Card (solid)</strong><br>
+          border: 1px solid var(--ink-soft)<br>
+          padding: 9px 14px<br>
+          background: var(--paper)<br>
+          Hover: border-color → var(--amber-deep), bg → rgba(184,97,43,0.06)
+        </div>
+      </div>
+
+      <!-- Dashed event border -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual">
+          <div style="display: inline-flex; align-items: center; gap: 10px; padding: 9px 14px; border: 1px dashed var(--ink-mute); background: var(--paper);">
+            <span style="font-family: 'DM Mono', monospace; font-size: 9px; text-transform: uppercase; letter-spacing: 0.2em; color: var(--ink-mute);">Event</span>
+            <span style="font-family: 'Fraunces', serif; font-size: 0.95rem; font-style: italic; color: var(--ink-soft);">Concert</span>
+          </div>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>Connection Card (event/dashed)</strong><br>
+          border: 1px dashed var(--ink-mute) → #6b5c4a<br>
+          Same padding: 9px 14px<br>
+          Non-interactive (cursor: default)
+        </div>
+      </div>
+
+      <!-- CTA Button -->
+      <div class="ds-border-example">
+        <div class="ds-border-example__visual">
+          <a href="#" style="font-family: 'DM Mono', monospace; font-size: 0.7em; letter-spacing: 0.22em; text-transform: uppercase; color: var(--paper); text-decoration: none; display: inline-flex; align-items: center; gap: 0.8em; padding: 0.3em 0.9em; border: 1px solid var(--paper); background: var(--ink);">Listen ↗</a>
+        </div>
+        <div class="ds-border-example__info">
+          <strong>CTA Button (Link)</strong><br>
+          border: 1px solid var(--paper) on dark bg<br>
+          background: var(--ink), color: var(--paper)<br>
+          padding: 0.3em 0.9em<br>
+          Hover: inverts (bg: paper, color: ink, border-color: ink)
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION: SPACING
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="ds-section">
+    <h2 class="ds-section__title">Spacing</h2>
+    <p class="ds-section__desc">Key spacing values used throughout the layout. The design uses generous whitespace for a premium editorial feel.</p>
+
+    <div class="ds-label">Page Padding & Gaps</div>
+    <div class="ds-spacing">
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 48px;"></div>
+        <div class="ds-spacing__label">48px — Horizontal page padding (desktop)</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 24px;"></div>
+        <div class="ds-spacing__label">24px — Horizontal page padding (mobile ≤900px)</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 96px;"></div>
+        <div class="ds-spacing__label">96px — Intro section top padding</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 72px;"></div>
+        <div class="ds-spacing__label">72px — Month-marker top margin, intro bottom padding</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 56px;"></div>
+        <div class="ds-spacing__label">56px — Entry vertical padding, colophon top padding</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 48px;"></div>
+        <div class="ds-spacing__label">48px — Entry grid gap (desktop), masthead sub-gap</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 32px;"></div>
+        <div class="ds-spacing__label">32px — Masthead top padding, month-marker bottom margin</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 24px;"></div>
+        <div class="ds-spacing__label">24px — Intro eyebrow margin-bottom, stat padding</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 16px;"></div>
+        <div class="ds-spacing__label">16px — Meta margin-bottom, general small gap</div>
+      </div>
+      <div class="ds-spacing__item">
+        <div class="ds-spacing__bar" style="width: 8px;"></div>
+        <div class="ds-spacing__label">8px — Tight gaps (title to subtitle, sparked cards)</div>
+      </div>
+    </div>
+
+    <div class="ds-label" style="margin-top: 40px;">Layout Constraints</div>
+    <div style="padding: 20px; border: 1px solid var(--ink-soft); background: var(--cream); font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-soft); line-height: 2.2;">
+      max-width (page): 1400px (centered with margin: 0 auto)<br>
+      max-width (intro text): 860px<br>
+      max-width (body text): 42em<br>
+      Sleeve/cover size: 360px (desktop), 260px (≤1200px), 22em (mobile)<br>
+      Timeline sidebar: 148px (desktop), 56px (mobile)<br>
+      Stats grid: 4 columns (desktop), 2 columns (mobile)<br>
+      Colophon grid: 2 columns (desktop), 1 column (mobile)
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION: COMPONENT EXAMPLES
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="ds-section">
+    <h2 class="ds-section__title">Component Examples</h2>
+    <p class="ds-section__desc">Live examples of key design patterns composed from the primitives above.</p>
+
+    <!-- Eyebrow -->
+    <div class="ds-label">Eyebrow (Section Intro)</div>
+    <div style="margin-bottom: 40px; padding: 24px; border: 1px solid var(--ink-soft); background: var(--cream);">
+      <!--
+        EYEBROW PATTERN
+        - Font: DM Mono, 11px, uppercase, letter-spacing 0.25em
+        - Color: var(--amber-deep)
+        - Has a 32px × 1px line before it (same color), gap 14px
+      -->
+      <div style="font-family: 'DM Mono', monospace; font-size: 11px; text-transform: uppercase; letter-spacing: 0.25em; color: var(--amber-deep); display: flex; align-items: center; gap: 14px;">
+        <span style="width: 32px; height: 1px; background: var(--amber-deep); display: inline-block;"></span>
+        From the Collection
+      </div>
+    </div>
+
+    <!-- Stat block -->
+    <div class="ds-label">Stat Block</div>
+    <div style="margin-bottom: 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink);">
+      <!--
+        STAT BLOCK
+        - Container: bordered top/bottom 2px solid ink, grid columns
+        - Each stat separated by: border-right: 1px solid var(--ink-soft)
+        - Padding per stat: 28px 24px
+        - Label: DM Mono, 10px, uppercase, letter-spacing 0.18em, color: ink-mute
+        - Value: Gloock, 2.6rem, line-height 1, color: ink
+        - Detail: Fraunces italic, 0.88rem, color: ink-soft
+      -->
+      <div style="padding: 28px 24px; border-right: 1px solid var(--ink-soft);">
+        <div style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--ink-mute);">Total Records</div>
+        <div style="font-family: 'Gloock', serif; font-size: 2.6rem; line-height: 1; color: var(--ink); margin-top: 6px;">42</div>
+        <div style="font-family: 'Fraunces', serif; font-style: italic; font-size: 0.88rem; color: var(--ink-soft); margin-top: 4px;">and counting</div>
+      </div>
+      <div style="padding: 28px 24px; border-right: 1px solid var(--ink-soft);">
+        <div style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--ink-mute);">Genres</div>
+        <div style="font-family: 'Gloock', serif; font-size: 2.6rem; line-height: 1; color: var(--ink); margin-top: 6px;">12</div>
+        <div style="font-family: 'Fraunces', serif; font-style: italic; font-size: 0.88rem; color: var(--ink-soft); margin-top: 4px;">explored so far</div>
+      </div>
+      <div style="padding: 28px 24px;">
+        <div style="font-family: 'DM Mono', monospace; font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; color: var(--ink-mute);">Latest</div>
+        <div style="font-family: 'Gloock', serif; font-size: 2.6rem; line-height: 1; color: var(--ink); margin-top: 6px;">Apr</div>
+        <div style="font-family: 'Fraunces', serif; font-style: italic; font-size: 0.88rem; color: var(--ink-soft); margin-top: 4px;">2026</div>
+      </div>
+    </div>
+
+    <!-- Month marker -->
+    <div class="ds-label">Month Marker / Section Divider</div>
+    <div style="margin-bottom: 40px; padding: 24px; border: 1px solid var(--ink-soft); background: var(--cream);">
+      <!--
+        MONTH MARKER
+        - Horizontal line with centered text
+        - Line: flex: 1, height: 1px, background: var(--ink-soft)
+        - Text: DM Mono, 11px, letter-spacing 0.25em, color: ink-mute, padding 0 8px
+        - Gap between line and text: 24px
+      -->
+      <div style="display: flex; align-items: center; gap: 24px;">
+        <div style="flex: 1; height: 1px; background: var(--ink-soft);"></div>
+        <div style="font-family: 'DM Mono', monospace; font-size: 11px; letter-spacing: 0.25em; color: var(--ink-mute); padding: 0 8px;">MARCH 2026</div>
+        <div style="flex: 1; height: 1px; background: var(--ink-soft);"></div>
+      </div>
+    </div>
+
+    <!-- Entry composition -->
+    <div class="ds-label">Entry Composition (Simplified)</div>
+    <div style="margin-bottom: 40px; padding: 40px; border: 1px solid var(--ink-soft); background: var(--cream);">
+      <div style="display: grid; grid-template-columns: auto 1fr; gap: 48px; align-items: start;">
+        <!-- Left: Number + Cover placeholder -->
+        <div style="display: flex; align-items: flex-start;">
+          <div style="display: flex; flex-direction: column; gap: 14px; padding-top: 4px; margin-right: 24px;">
+            <!-- Entry number -->
+            <div style="font-family: 'Gloock', serif; font-size: 3.2rem; line-height: 1; color: var(--amber-deep); letter-spacing: -0.02em; display: inline-block; border: 1px solid var(--amber-deep); padding: 10px 16px 6px; align-self: flex-start;">01</div>
+            <!-- Stamp/date -->
+            <div style="font-family: 'DM Mono', monospace; font-size: 9px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-mute);">AUG 2024</div>
+          </div>
+          <!-- Cover placeholder -->
+          <div style="width: 180px; height: 180px; background: var(--paper-dark); border: 1px solid var(--ink); display: flex; align-items: center; justify-content: center;">
+            <span style="font-family: 'DM Mono', monospace; font-size: 9px; color: var(--ink-mute); text-transform: uppercase; letter-spacing: 0.15em;">Cover Art</span>
+          </div>
+        </div>
+        <!-- Right: Text content -->
+        <div>
+          <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase; color: var(--ink-mute); margin-bottom: 16px;">LP <span style="color: var(--amber-deep);">·</span> Rock</div>
+          <div style="font-family: 'Gloock', serif; font-size: 2.4rem; line-height: 0.95; letter-spacing: -0.02em; color: var(--ink); margin-bottom: 8px;">Artist Name</div>
+          <div style="font-family: 'Fraunces', serif; font-style: italic; font-size: 1.4rem; line-height: 1.2; color: var(--amber-deep); margin-bottom: 24px;">Album Title Goes Here</div>
+          <div style="font-family: 'Fraunces', serif; font-size: 1rem; color: var(--ink-soft); padding-left: 18px; border-left: 2px solid var(--amber-deep); max-width: 36em;">A personal note about this record — why it was purchased, what it means, how it sounds on the turntable.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Drop cap -->
+    <div class="ds-label">Drop Cap (First Letter)</div>
+    <div style="margin-bottom: 40px; padding: 24px; border: 1px solid var(--ink-soft); background: var(--cream); max-width: 500px;">
+      <!--
+        DROP CAP
+        - Font: Gloock, 4.2rem
+        - float: left
+        - line-height: 0.85
+        - padding: 6px 10px 0 0
+        - color: var(--amber-deep)
+        - Applied to first-child paragraph's ::first-letter
+      -->
+      <p style="font-family: 'Fraunces', serif; font-size: 17px; line-height: 1.6; color: var(--ink-soft);">
+        <span style="font-family: 'Gloock', serif; font-size: 4.2rem; float: left; line-height: 0.85; padding: 6px 10px 0 0; color: var(--amber-deep);">T</span>his is how the intro paragraph begins — with a large decorative drop cap in Gloock serif, colored in the amber-deep accent.
+      </p>
+    </div>
+
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION: VINYL RECORD ELEMENT
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="ds-section">
+    <h2 class="ds-section__title">Vinyl Record Element</h2>
+    <p class="ds-section__desc">The record peeks out from behind the album sleeve. It spins on hover. Key visual specs below.</p>
+
+    <div class="ds-label">Record Anatomy</div>
+    <div style="padding: 24px; border: 1px solid var(--ink-soft); background: var(--cream); font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-soft); line-height: 2.4;">
+      <!--
+        VINYL RECORD
+        - Shape: Circle (border-radius: 50%), same width/height as sleeve (360px)
+        - Background: repeating-radial-gradient for groove lines + radial gradient for surface
+          • Grooves: #555555 0px, #0a0806 1px, #161210 1px, #161210 2px
+          • Surface: radial-gradient(#1a1410, #050403)
+        - box-shadow: inset 0 0 0 1px #000, 0 4px 12px rgba(0,0,0,0.5)
+        - Groove overlay (inner 8%): repeating-radial-gradient with 3px repeat, rgba(255,255,255,0.03) highlight
+        - Center label: 36% diameter circle
+          • background: radial-gradient(circle at 40% 35%, var(--amber) 0%, var(--amber-deep) 70%, #5a2808 100%)
+          • box-shadow: 0 0 0 1px rgba(0,0,0,0.4), inset 0 0 12px rgba(0,0,0,0.3)
+          • Center hole: 8% of label diameter, background: var(--ink)
+          • Text on label: DM Mono, 7px, uppercase, letter-spacing 0.15em, color: var(--cream)
+        - Animation: spin 8s linear infinite (paused until hover)
+        - Slide-out on hover: translateX(38%) rotate(6deg), transition 0.8s cubic-bezier(.2,.8,.2,1)
+      -->
+      <strong style="color: var(--ink);">Disc Surface:</strong> repeating-radial-gradient (groove simulation) + base radial gradient<br>
+      <strong style="color: var(--ink);">Groove overlay:</strong> inset 8%, repeating-radial-gradient 3px interval, 3% white opacity<br>
+      <strong style="color: var(--ink);">Center label:</strong> 36% diameter, amber radial gradient, 8% center hole<br>
+      <strong style="color: var(--ink);">Animation:</strong> @keyframes spin { 0%→360° }, 8s linear infinite, paused by default<br>
+      <strong style="color: var(--ink);">Hover slide:</strong> translateX(38%) rotate(6deg), 0.8s cubic-bezier(.2,.8,.2,1)<br>
+      <strong style="color: var(--ink);">Sleeve 3D tilt on hover:</strong> rotateY(-4deg) rotateX(2deg), perspective: 1200px<br>
+      <strong style="color: var(--ink);">Sleeve corner marks:</strong> 22×22px, border 1px solid rgba(255,255,255,0.35), top-left + bottom-right
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       SECTION: ANIMATIONS & INTERACTIONS
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <section class="ds-section">
+    <h2 class="ds-section__title">Animations & Interactions</h2>
+    <p class="ds-section__desc">Minimal, tasteful motion. Scroll-driven entry reveals and hover interactions.</p>
+
+    <div style="padding: 24px; border: 1px solid var(--ink-soft); background: var(--cream); font-family: 'DM Mono', monospace; font-size: 11px; color: var(--ink-soft); line-height: 2.4;">
+      <strong style="color: var(--ink);">Entry fade-in:</strong> opacity 0→1, translateY(30px→0), 1s cubic-bezier(.2,.8,.2,1)<br>
+      &nbsp;&nbsp;animation-timeline: view(), range: entry 0%–100%<br>
+      <strong style="color: var(--ink);">Sleeve hover:</strong> rotateY(-4deg) rotateX(2deg), 0.6s cubic-bezier(.2,.8,.2,1)<br>
+      <strong style="color: var(--ink);">Record hover:</strong> translateX(38%) rotate(6deg), 0.8s cubic-bezier(.2,.8,.2,1) + spin starts<br>
+      <strong style="color: var(--ink);">Link hover:</strong> background/color invert, 0.25s ease<br>
+      <strong style="color: var(--ink);">Timeline active:</strong> border-right-color + dot scale(1.5) + amber color, 0.25s ease<br>
+      <strong style="color: var(--ink);">Sparked card hover:</strong> border-color → amber-deep, bg → rgba(184,97,43,0.06), 0.2s ease<br>
+      <strong style="color: var(--ink);">prefers-reduced-motion:</strong> all animations disabled, static layout
+    </div>
+  </section>
+
+  <!-- ═══════════════════════════════════════════════════════════════════════
+       FOOTER
+       ═══════════════════════════════════════════════════════════════════════ -->
+  <footer style="padding-top: 56px; border-top: 2px solid var(--ink); margin-top: 48px;">
+    <div style="font-family: 'DM Mono', monospace; font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; color: var(--ink-mute); line-height: 2;">
+      Design System Reference · My Musical Journey<br>
+      Extracted for Raspberry Pi UI adaptation
+    </div>
+  </footer>
+
+</div>
+
+</body>
+</html>

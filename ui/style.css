@@ -1,55 +1,170 @@
-/* Base reset */
+/* === Design System: Custom Properties === */
+:root {
+    --paper: #efe6d4;
+    --paper-dark: #e4d9c0;
+    --cream: #f5ecd8;
+    --ink: #1a1410;
+    --ink-soft: #3a2e24;
+    --ink-mute: #6b5c4a;
+    --amber: #b8612b;
+    --amber-deep: #8a3f15;
+    --vinyl: #0d0a08;
+    --gold: #b8944a;
+    --red-ink: #9a2e1f;
+}
+
+/* === Font Faces === */
+@font-face {
+    font-family: 'DM Mono';
+    font-style: normal;
+    font-weight: 400;
+    src: url('fonts/dm-mono-400-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF;
+}
+@font-face {
+    font-family: 'DM Mono';
+    font-style: normal;
+    font-weight: 400;
+    src: url('fonts/dm-mono-400-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'DM Mono';
+    font-style: normal;
+    font-weight: 500;
+    src: url('fonts/dm-mono-500-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF;
+}
+@font-face {
+    font-family: 'DM Mono';
+    font-style: normal;
+    font-weight: 500;
+    src: url('fonts/dm-mono-500-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-weight: 400 900;
+    src: url('fonts/fraunces-normal-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF;
+}
+@font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-weight: 400 900;
+    src: url('fonts/fraunces-normal-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-weight: 400 700;
+    src: url('fonts/fraunces-italic-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF;
+}
+@font-face {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-weight: 400 700;
+    src: url('fonts/fraunces-italic-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Gloock';
+    font-style: normal;
+    font-weight: 400;
+    src: url('fonts/gloock-400-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF;
+}
+@font-face {
+    font-family: 'Gloock';
+    font-style: normal;
+    font-weight: 400;
+    src: url('fonts/gloock-400-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-024F, U+0259, U+1E00-1EFF, U+2020, U+20A0-20AB, U+20AD-20CF, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* === Base Reset === */
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
+html {
+    /* Screen physical size — change these to match your display */
+    --screen-width: 9.37cm;
+    --screen-height: 5.62cm;
+    /* DPI correction: CSS assumes 96dpi, but your monitor may differ.
+       Measure a rendered element with a ruler, then adjust:
+       correction = expected_cm / measured_cm */
+    --dpi-correction: 1.1786;
+    /* 1rem = screen width / 50 (body is 50rem wide) × correction */
+    font-size: calc(var(--screen-width) / 50 * var(--dpi-correction));
+}
+
 html, body {
-    width: 800px;
-    height: 480px;
+    width: 50rem;
+    height: 30rem;
     overflow: hidden;
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background: #f5f5f7;
-    color: #1d1d1f;
+    font-family: 'Fraunces', serif;
+    background: var(--paper);
+    color: var(--ink);
 }
 
 body {
     display: flex;
     flex-direction: column;
+    background:
+        radial-gradient(ellipse at 15% 20%, rgba(184, 97, 43, 0.08) 0%, transparent 50%),
+        radial-gradient(ellipse at 85% 80%, rgba(26, 20, 16, 0.05) 0%, transparent 50%),
+        var(--paper);
 }
 
-/* Top bar */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    opacity: 0.2;
+    mix-blend-mode: multiply;
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='800' height='480'%3E%3Cfilter id='grain'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23grain)'/%3E%3C/svg%3E");
+}
+
+/* === Top Bar === */
 #top-bar {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 20px;
-    background: #fff;
-    height: 48px;
+    padding: 0 1.25rem;
+    background: var(--paper);
+    height: 3rem;
     flex-shrink: 0;
-    border-bottom: 1px solid #e5e5e7;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    border-bottom: 2px solid var(--ink);
 }
 
 #mode-label {
-    font-size: 15px;
-    font-weight: 700;
-    color: #1d1d1f;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: var(--ink);
     text-transform: uppercase;
-    letter-spacing: 1.5px;
+    letter-spacing: 0.2em;
 }
 
 #stylus-info {
-    font-size: 13px;
-    color: #86868b;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--ink-mute);
     display: flex;
-    gap: 8px;
+    gap: 0.5rem;
     align-items: center;
-    font-weight: 500;
+    font-weight: 400;
 }
 
-/* Main content area */
+/* === Main Content Area === */
 #content {
     flex: 1;
     display: flex;
@@ -65,21 +180,21 @@ body {
     align-items: center;
     justify-content: center;
     flex-direction: column;
-    gap: 12px;
-    padding: 0 32px;
+    gap: 0.75rem;
+    padding: 0 2rem;
 }
 
 .mode-section.active {
     display: flex;
 }
 
-/* Horizontal layout for Standby, Play, Link */
+/* === Horizontal Layout for Standby, Play, Link === */
 .split-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 32px;
+    grid-template-columns: 20rem 1fr;
+    gap: 2.5rem;
     width: 100%;
-    height: 100%;
+    height: 20rem;
     align-items: center;
 }
 
@@ -93,125 +208,167 @@ body {
 .info-col {
     display: flex;
     flex-direction: column;
-    gap: 6px;
-    justify-content: center;
+    gap: 0.375rem;
+    justify-content: flex-start;
+    position: relative;
+    height: 20rem;
+    padding-top: 3rem;
 }
 
-/* Cover images */
+/* === Cover Images === */
 .cover-image {
-    max-height: 320px;
-    max-width: 320px;
+    max-height: 20rem;
+    max-width: 20rem;
     width: 100%;
     height: auto;
     object-fit: contain;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--ink);
+    box-shadow:
+        0 0.0625rem 0 rgba(26, 20, 16, 0.15),
+        0 0.625rem 1.875rem rgba(26, 20, 16, 0.25),
+        0 1.875rem 3.125rem rgba(26, 20, 16, 0.15);
 }
 
 .cover-placeholder {
-    width: 280px;
-    height: 280px;
-    background: #e5e5e7;
+    width: 17.5rem;
+    height: 17.5rem;
+    background: var(--paper-dark);
     display: flex;
     align-items: center;
     justify-content: center;
-    border: 1px solid #d2d2d7;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+    border: 1px solid var(--ink-soft);
 }
 
 .cover-placeholder-text {
-    font-size: 20px;
-    font-weight: 600;
-    color: #86868b;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.2rem;
+    font-weight: 400;
+    color: var(--ink-mute);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
     text-align: center;
-    padding: 16px;
+    padding: 1rem;
 }
 
-/* Record info */
+/* === Record Info === */
 .record-id {
-    font-size: 16px;
-    color: #86868b;
-    font-weight: 500;
-    letter-spacing: 0.5px;
-}
-
-.now-playing {
-    font-size: 22px;
-    font-weight: 600;
-    color: #0071e3;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid #e5e5e7;
+    font-family: 'Gloock', serif;
+    font-size: 2.4rem;
+    line-height: 1;
+    color: var(--amber-deep);
+    letter-spacing: -0.02em;
+    border: 1px solid var(--amber-deep);
+    padding: 0.625rem 1rem 0.375rem;
+    position: absolute;
+    top: 0;
+    right: 0;
 }
 
 .record-artist {
-    font-size: 26px;
-    font-weight: 600;
-    color: #1d1d1f;
+    font-family: 'Gloock', serif;
+    font-size: 3rem;
+    font-weight: 400;
+    color: var(--ink);
 }
 
 .record-title {
-    font-size: 32px;
-    font-weight: 700;
-    color: #1d1d1f;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 2.2rem;
+    font-weight: 400;
+    color: var(--amber-deep);
     line-height: 1.2;
 }
 
+.now-playing {
+    font-family: 'Fraunces', serif;
+    font-size: 1.8rem;
+    font-weight: 400;
+    color: var(--ink-soft);
+    margin-top: 4rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--ink-soft);
+}
+
 .link-status {
-    font-size: 14px;
-    font-weight: 600;
-    color: #86868b;
-    margin-top: 8px;
-    padding: 4px 12px;
-    border: 1px solid #d2d2d7;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: var(--amber-deep);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-top: 1.1rem;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--amber-deep);
     border-radius: 0;
+    background: transparent;
     display: inline-block;
     width: fit-content;
 }
 
-/* Stylus info */
+/* === Stylus Mode === */
+#mode-stylus {
+    border: 1px solid var(--amber-deep);
+    padding: 2rem;
+    margin: 1rem;
+    width: 60%;
+    height: 35%;
+}
+
 .stylus-name-display {
-    font-size: 24px;
-    font-weight: 700;
-    color: #1d1d1f;
+    font-family: 'Fraunces', serif;
+    font-style: italic;
+    font-size: 2.2rem;
+    font-weight: 400;
+    color: var(--amber-deep);
+    line-height: 1.2;
 }
 
 .stylus-distance {
-    font-size: 18px;
-    color: #86868b;
-    font-weight: 500;
+    font-family: 'DM Mono', monospace;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--ink-mute);
+    font-weight: 400;
 }
 
-/* Empty and error states */
+/* === Empty and Error States === */
 .empty-state {
-    font-size: 18px;
-    color: #86868b;
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    font-size: 1.2rem;
+    color: var(--ink-mute);
     text-align: center;
-    font-weight: 500;
+    font-weight: 400;
 }
 
 .error-state {
-    font-size: 14px;
-    color: #86868b;
-    font-weight: 600;
-    margin-top: 8px;
-    padding: 4px 12px;
-    border: 1px solid #d2d2d7;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 400;
+    color: var(--red-ink);
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    margin-top: 1.1rem;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--red-ink);
     border-radius: 0;
+    background: transparent;
     display: inline-block;
     width: fit-content;
 }
 
-/* Bottom action bar */
+/* === Bottom Action Bar === */
 #action-bar {
     display: flex;
     justify-content: center;
     align-items: center;
     padding: 0;
-    background: #fff;
-    height: 64px;
+    background: var(--ink);
+    height: 4rem;
     flex-shrink: 0;
-    border-top: 1px solid #e5e5e7;
-    box-shadow: 0 -1px 3px rgba(0, 0, 0, 0.04);
+    border-top: 2px solid var(--ink);
 }
 
 .action-group {
@@ -232,11 +389,14 @@ body {
 
 .btn {
     padding: 0;
-    font-size: 18px;
-    font-weight: 600;
-    background: #f5f5f7;
-    color: #1d1d1f;
-    border: 1px solid #d2d2d7;
+    font-family: 'DM Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    background: var(--ink);
+    color: var(--paper);
+    border: 1px solid var(--ink-soft);
     border-radius: 0;
     cursor: pointer;
     transition: all 0.15s ease;
@@ -245,16 +405,9 @@ body {
 }
 
 .btn:hover {
-    background: #e8e8ed;
-    border-color: #c7c7cc;
+    background: var(--ink-soft);
 }
 
 .btn:active {
-    background: #d1d1d6;
-    transform: scale(0.97);
-}
-}
-
-.btn:active {
-    background: #2563a0;
+    background: var(--vinyl);
 }

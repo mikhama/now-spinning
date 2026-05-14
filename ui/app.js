@@ -121,6 +121,9 @@ function render() {
         case "stylus":
             renderStylus();
             document.getElementById(state.styli.length > 0 ? "actions-stylus" : "actions-standby").classList.add("active");
+            if (state.styli.length === 0) {
+                document.getElementById("btn-side-standby").style.visibility = "hidden";
+            }
             break;
     }
 }
@@ -135,6 +138,7 @@ function renderStandby() {
     grid.style.display = "none";
     errorGrid.style.display = "none";
     notFoundGrid.style.display = "none";
+    sideBtn.style.visibility = "hidden";
 
     if (state.standbyError === "nfc") {
         errorGrid.style.display = "";
@@ -142,8 +146,9 @@ function renderStandby() {
         notFoundGrid.style.display = "";
     } else if (record) {
         grid.style.display = "";
+        sideBtn.style.visibility = "visible";
         document.getElementById("standby-cover").src = coverImageUrl(record);
-        document.getElementById("standby-id").textContent = "#" + record.id;
+        document.getElementById("standby-id").textContent = String(record.id).padStart(2, "0");
         document.getElementById("standby-artist").textContent = record.artist;
         document.getElementById("standby-title").textContent = record.title;
         if (record.sides && record.sides.length > 0) {
@@ -166,7 +171,7 @@ function renderPlay() {
         var track = side.tracks[state.currentTrackIndex] || side.tracks[0];
 
         cover.src = coverImageUrl(record);
-        document.getElementById("play-id").textContent = "#" + record.id;
+        document.getElementById("play-id").textContent = String(record.id).padStart(2, "0");
         document.getElementById("play-artist").textContent = record.artist;
         document.getElementById("play-title").textContent = record.title;
         trackEl.textContent = track ? track.title : "";
@@ -185,7 +190,7 @@ function renderLink() {
 
     if (record) {
         cover.src = coverImageUrl(record);
-        idEl.textContent = "#" + record.id;
+        idEl.textContent = String(record.id).padStart(2, "0");
         artist.textContent = record.artist;
         title.textContent = record.title;
 
@@ -211,7 +216,7 @@ function renderReLink() {
 
     if (record) {
         cover.src = coverImageUrl(record);
-        idEl.textContent = "#" + record.id;
+        idEl.textContent = String(record.id).padStart(2, "0");
         artist.textContent = record.artist;
         title.textContent = record.title;
 
