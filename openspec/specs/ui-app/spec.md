@@ -20,15 +20,15 @@ The frontend SHALL consist of exactly three files: `ui/index.html`, `ui/style.cs
 - **THEN** it SHALL contain `index.html`, `style.css`, and `app.js`
 
 ### Requirement: Persistent top bar
-The UI SHALL display a persistent top bar across all modes showing the current mode label on the left and stylus hours on the right.
+The UI SHALL display a persistent top bar across all modes with `background: var(--paper)`, `border-bottom: 2px solid var(--ink)`, showing the current mode label in DM Mono 11px uppercase on the left and stylus hours in DM Mono 11px `color: var(--ink-mute)` on the right.
 
 #### Scenario: Top bar displays mode label
 - **WHEN** the current mode is "Standby"
-- **THEN** the top bar SHALL show "Standby" on the left side
+- **THEN** the top bar SHALL show "STANDBY" in DM Mono uppercase on the left side with ink-colored text
 
 #### Scenario: Top bar displays stylus hours
 - **WHEN** a stylus is loaded with 89.6 hours
-- **THEN** the top bar SHALL show "89.6 h" on the right
+- **THEN** the top bar SHALL show "89.6 h" in DM Mono on the right in ink-mute color
 
 ### Requirement: Five application modes
 The UI SHALL support five modes: Standby, Play, Link, Re-Link, and Stylus. Mode switching via the Mode button is disabled — modes are only reachable via URL hash in dev mode or via WebSocket events (play/idle status).
@@ -45,11 +45,22 @@ All modes displaying record information SHALL use a 1:1 horizontal split-grid la
 - **THEN** the cover image SHALL appear in the left half and text info in the right half
 
 ### Requirement: Text hierarchy for 4.3" display readability
-Text SHALL use differentiated sizes for visual hierarchy: record ID (16px), artist (26px), album title (32px), now-playing track (22px).
+Text SHALL use the design system's three-font hierarchy: record ID in Gloock 2.4rem amber-deep bordered badge (top-right), artist in Gloock 3rem (ink), album title in Fraunces italic 2.2rem (amber-deep), now-playing track in Fraunces 1.8rem (ink-soft).
 
-#### Scenario: Text sizes render correctly
+#### Scenario: Text sizes and fonts render correctly
 - **WHEN** a record is displayed
-- **THEN** the album title SHALL be the largest text, followed by artist, then track name, then record ID
+- **THEN** the album title SHALL be in Fraunces italic amber-deep, artist in Gloock, track in Fraunces, and record ID in Gloock bordered badge
+
+### Requirement: Record ID display format
+Record IDs SHALL be displayed as zero-padded numbers (minimum 2 digits) without a hash prefix. For example, record id "1" displays as "01", record id "12" displays as "12".
+
+#### Scenario: Single-digit record ID
+- **WHEN** a record with id "1" is displayed
+- **THEN** the record ID text SHALL be "01"
+
+#### Scenario: Multi-digit record ID
+- **WHEN** a record with id "42" is displayed
+- **THEN** the record ID text SHALL be "42"
 
 ### Requirement: Standby mode — record display
 In Standby mode, the UI SHALL display the current record's cover image, catalogue number (#ID), artist, and title. A Side button SHALL show the current side label and allow switching sides.
@@ -77,11 +88,11 @@ In Standby mode, when a scanned record is not found in the database, the UI SHAL
 - **THEN** the UI SHALL show a cover placeholder with "Record Not Found" text inside
 
 ### Requirement: Cover placeholder
-Error states that would normally show a cover image SHALL instead display a gray placeholder box (280×280px, gray background, gray border) with descriptive text centered inside.
+Error states that would normally show a cover image SHALL instead display a placeholder box (280×280px) with `background: var(--paper-dark)`, `border: 1px solid var(--ink-soft)`, and descriptive text in DM Mono uppercase `color: var(--ink-mute)` centered inside.
 
 #### Scenario: Cover placeholder renders
 - **WHEN** an error state requires a cover placeholder
-- **THEN** the placeholder SHALL be a gray box with centered gray text describing the error
+- **THEN** the placeholder SHALL be a paper-dark box with centered DM Mono uppercase text in ink-mute color
 
 ### Requirement: Play mode — now playing display
 In Play mode, the UI SHALL display the current record's cover image, catalogue number, artist, title, currently playing track name (blue accent), current side label, and prev/next song navigation.
@@ -125,11 +136,34 @@ In Re-Link mode, the UI SHALL display only records that have `linked: true`. It 
 - **THEN** the UI SHALL navigate through linked records only
 
 ### Requirement: Link/error status tag styling
-Link status tags ("Linked", "Not Linked") and error tags ("Link Error") SHALL use gray text with a gray border, no background color, and no border-radius.
+Link status tags ("Linked", "Not Linked") SHALL use DM Mono uppercase, `color: var(--amber-deep)`, `border: 1px solid var(--amber-deep)`. Error tags ("Link Error") SHALL use `color: var(--red-ink)`, `border: 1px solid var(--red-ink)`. No background fill, no border-radius.
 
 #### Scenario: Status tag appearance
-- **WHEN** a link status or error tag is displayed
-- **THEN** it SHALL have gray text, a gray border, and no rounded corners
+- **WHEN** a link status tag is displayed
+- **THEN** it SHALL have amber-deep text and border, DM Mono uppercase, no background
+
+#### Scenario: Error tag appearance
+- **WHEN** a link error tag is displayed
+- **THEN** it SHALL have red-ink text and border, DM Mono uppercase, no background
+
+### Requirement: Hide irrelevant action buttons in error/empty states
+The "Side" action button SHALL be hidden (visibility: hidden) when in standby error states (NFC error, Record Not Found) and when stylus mode displays "No styli found". The button SHALL only be visible when a valid record is loaded.
+
+#### Scenario: Side button hidden on NFC error
+- **WHEN** standby mode shows NFC Reading Error
+- **THEN** the Side button SHALL NOT be visible
+
+#### Scenario: Side button hidden on not found
+- **WHEN** standby mode shows Record Not Found
+- **THEN** the Side button SHALL NOT be visible
+
+#### Scenario: Side button hidden on empty stylus
+- **WHEN** stylus mode shows "No styli found"
+- **THEN** the Side button SHALL NOT be visible
+
+#### Scenario: Side button visible with valid record
+- **WHEN** standby mode displays a loaded record
+- **THEN** the Side button SHALL be visible
 
 ### Requirement: Stylus mode — stylus info display
 In Stylus mode, the UI SHALL display the current stylus name and distance/hours, with Prev/Next navigation.
@@ -143,11 +177,11 @@ In Stylus mode, the UI SHALL display the current stylus name and distance/hours,
 - **THEN** the UI SHALL show "No styli found!" message
 
 ### Requirement: Button styling for touchscreen
-Action bar buttons SHALL have no border-radius, no spacing between them, fill their entire grid cell (width and height 100%), and use 18px font size for readability on the 4.3" display.
+Action bar buttons SHALL have no border-radius, no spacing between them, fill their entire grid cell, use DM Mono 14px uppercase with letter-spacing 0.15em, `background: var(--ink)`, `color: var(--paper)`, and `border: 1px solid var(--ink-soft)`.
 
-#### Scenario: Button fills cell
+#### Scenario: Button fills cell with vintage styling
 - **WHEN** an action button is rendered
-- **THEN** it SHALL fill the full width and height of its grid cell with no gaps between adjacent buttons
+- **THEN** it SHALL fill the full width and height of its grid cell with dark ink background and paper-colored monospace text
 
 ### Requirement: Disabled action buttons
 The Mode button, Link button, Re-Link button, and Reset Stylus button SHALL be rendered but have no click handlers attached (future implementation).
