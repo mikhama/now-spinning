@@ -70,6 +70,14 @@ function getStylusHours(stylus) {
     return state.stylusHours[stylus.id] !== undefined ? state.stylusHours[stylus.id] : stylus.hours;
 }
 
+function getBarFillRatio(hours, capacityMax) {
+    return Math.min(hours / capacityMax, 1);
+}
+
+function getBarColor(hours, capacityMin) {
+    return hours < capacityMin ? "--ink-soft" : "--amber-deep";
+}
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -88,9 +96,24 @@ function render() {
     // Top bar — mode label
     document.getElementById("mode-label").textContent = getModeLabel();
 
-    // Top bar — stylus info
+    // Top bar — stylus compact bar + temperature
     var topStylus = state.styli.length > 0 ? state.styli[0] : null;
-    document.getElementById("stylus-hours-display").textContent = topStylus ? getStylusHours(topStylus) + " h" : "";
+    var compactBar = document.getElementById("stylus-bar-compact");
+    var compactFill = document.getElementById("stylus-bar-compact-fill");
+    var tempDisplay = document.getElementById("temperature-display");
+
+    if (topStylus) {
+        var topHours = getStylusHours(topStylus);
+        var topRatio = getBarFillRatio(topHours, topStylus.capacity_max);
+        var topColor = getBarColor(topHours, topStylus.capacity_min);
+        compactBar.style.display = "";
+        compactFill.style.width = (topRatio * 100) + "%";
+        compactFill.style.background = "var(" + topColor + ")";
+    } else {
+        compactBar.style.display = "none";
+    }
+
+    tempDisplay.textContent = state.temperature !== null ? Math.round(state.temperature) + " °C" : "N/A";
 
     // Hide all mode sections and action groups
     var sections = document.querySelectorAll(".mode-section");
@@ -235,17 +258,27 @@ function renderStylus() {
     var stylus = getCurrentStylus();
     var nameEl = document.getElementById("stylus-mode-name");
     var hoursEl = document.getElementById("stylus-mode-hours");
+    var barFill = document.getElementById("stylus-bar-full-fill");
+    var bar = document.getElementById("stylus-bar-full");
     var empty = document.getElementById("stylus-empty");
 
     if (stylus) {
+        var hours = getStylusHours(stylus);
+        var ratio = getBarFillRatio(hours, stylus.capacity_max);
+        var color = getBarColor(hours, stylus.capacity_min);
+
         nameEl.textContent = stylus.name;
         nameEl.style.display = "";
-        hoursEl.textContent = "Distance: " + getStylusHours(stylus) + " h";
+        hoursEl.textContent = hours + " h";
         hoursEl.style.display = "";
+        bar.style.display = "";
+        barFill.style.width = (ratio * 100) + "%";
+        barFill.style.background = "var(" + color + ")";
         empty.style.display = "none";
     } else {
         nameEl.style.display = "none";
         hoursEl.style.display = "none";
+        bar.style.display = "none";
         empty.style.display = "";
     }
 }
@@ -266,6 +299,19 @@ function fetchStyli() {
         .then(function (res) { return res.json(); })
         .then(function (data) { state.styli = data; })
         .catch(function (e) { console.error("Failed to fetch styli:", e); });
+}
+
+function fetchTemperature() {
+    return fetch("/temperature")
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            state.temperature = data.celsius;
+            render();
+        })
+        .catch(function () {
+            state.temperature = null;
+            render();
+        });
 }
 
 function linkRecord() {
@@ -504,6 +550,8 @@ document.addEventListener("DOMContentLoaded", function () {
             render();
         }
         connectWebSocket();
+        fetchTemperature();
+        setInterval(fetchTemperature, 30000);
     });
 
     window.addEventListener("hashchange", function () {

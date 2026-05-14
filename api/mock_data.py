@@ -43,5 +43,5 @@ RECORDS: dict[str, Record] = {
 }
 
 STYLI: dict[str, Stylus] = {
-    "1": Stylus(id="1", name="Sumiko Olympia", hours=89.6)
+    "1": Stylus(id="1", name="Sumiko Olympia", hours=89.6, capacity_min=800, capacity_max=1000)
 }

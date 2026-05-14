@@ -164,6 +164,39 @@ body::before {
     font-weight: 400;
 }
 
+/* === Stylus Bar === */
+.stylus-bar {
+    background: var(--paper-dark);
+    border-radius: 0.5rem;
+    overflow: hidden;
+}
+
+.stylus-bar--compact {
+    width: 4rem;
+    height: 0.5rem;
+}
+
+.stylus-bar--full {
+    width: 20rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+.stylus-bar__fill {
+    height: 100%;
+    border-radius: 0.5rem;
+    background: var(--ink-soft);
+    min-width: 2px;
+    transition: width 0.3s ease;
+}
+
+/* === Temperature Display === */
+#temperature-display {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    color: var(--ink-mute);
+}
+
 /* === Main Content Area === */
 #content {
     flex: 1;
@@ -326,9 +359,8 @@ body::before {
 
 .stylus-distance {
     font-family: 'DM Mono', monospace;
-    font-size: 1rem;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
+    font-size: 1.4rem;
+    letter-spacing: 0.1em;
     color: var(--ink-mute);
     font-weight: 400;
 }

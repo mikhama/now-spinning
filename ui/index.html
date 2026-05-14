@@ -10,7 +10,10 @@
     <header id="top-bar">
         <div id="mode-label">Mode: Standby</div>
         <div id="stylus-info">
-            <span id="stylus-hours-display"></span>
+            <div id="stylus-bar-compact" class="stylus-bar stylus-bar--compact">
+                <div id="stylus-bar-compact-fill" class="stylus-bar__fill"></div>
+            </div>
+            <span id="temperature-display"></span>
         </div>
     </header>
 
@@ -95,6 +98,9 @@
         <!-- Stylus mode -->
         <section id="mode-stylus" class="mode-section">
             <div id="stylus-mode-name" class="stylus-name-display"></div>
+            <div id="stylus-bar-full" class="stylus-bar stylus-bar--full">
+                <div id="stylus-bar-full-fill" class="stylus-bar__fill"></div>
+            </div>
             <div id="stylus-mode-hours" class="stylus-distance"></div>
             <div id="stylus-empty" class="empty-state">No styli found!</div>
         </section>

@@ -27,3 +27,5 @@ class Stylus(BaseModel):
     id: str
     name: str
     hours: float
+    capacity_min: float
+    capacity_max: float

@@ -69,6 +69,21 @@ def sync_styli():
 
 
 # ---------------------------------------------------------------------------
+# Temperature
+# ---------------------------------------------------------------------------
+
+@app.get("/temperature")
+def get_temperature():
+    try:
+        with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
+            millidegrees = int(f.read().strip())
+            return jsonify({"celsius": millidegrees / 1000})
+    except (FileNotFoundError, IOError, ValueError) as e:
+        app.logger.error("Failed to read Pi temperature: %s", e)
+        return jsonify({"celsius": None})
+
+
+# ---------------------------------------------------------------------------
 # Server control
 # ---------------------------------------------------------------------------
 
