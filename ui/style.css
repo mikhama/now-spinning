@@ -340,12 +340,28 @@ body::before {
 }
 
 /* === Stylus Mode === */
-#mode-stylus {
+#mode-stylus,
+#mode-sync {
     border: 1px solid var(--amber-deep);
     padding: 2rem;
     margin: 1rem;
     width: 60%;
     height: 35%;
+}
+
+#mode-sync {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sync-status-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 1.4rem;
+    letter-spacing: 0.1em;
+    color: var(--ink-mute);
+    font-weight: 400;
+    text-align: center;
 }
 
 .stylus-name-display {

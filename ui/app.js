@@ -22,7 +22,7 @@ var state = {
 // Mode switching
 // ---------------------------------------------------------------------------
 
-var MODES = ["standby", "play", "link", "re-link", "stylus"];
+var MODES = ["standby", "play", "link", "re-link", "stylus", "sync"];
 
 function nextMode() {
     var i = MODES.indexOf(state.mode);
@@ -89,7 +89,7 @@ function getModeLabel() {
         return "Link";
     }
     if (state.mode === "re-link") return "Re-Link";
-    return { standby: "Standby", play: "Play", stylus: "Stylus" }[state.mode] || state.mode;
+    return { standby: "Standby", play: "Play", stylus: "Stylus", sync: "Sync" }[state.mode] || state.mode;
 }
 
 function render() {
@@ -147,6 +147,10 @@ function render() {
             if (state.styli.length === 0) {
                 document.getElementById("btn-side-standby").style.visibility = "hidden";
             }
+            break;
+        case "sync":
+            renderSync();
+            document.getElementById("actions-sync").classList.add("active");
             break;
     }
 }
@@ -281,6 +285,10 @@ function renderStylus() {
         bar.style.display = "none";
         empty.style.display = "";
     }
+}
+
+function renderSync() {
+    document.getElementById("sync-status").textContent = "Step 1/3. Downloading collection updates...";
 }
 
 // ---------------------------------------------------------------------------

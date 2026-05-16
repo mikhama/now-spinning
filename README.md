@@ -43,6 +43,7 @@ BOARDLESS_MODE=true python -m exp.nfc_test
 ```
 
 To debug all views:
+- http://127.0.0.1:5000/#sync
 - http://127.0.0.1:5000/#standby
 - http://127.0.0.1:5000/#standby-error
 - http://127.0.0.1:5000/#standby-not-found

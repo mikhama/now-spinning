@@ -39,11 +39,11 @@ The UI SHALL display a persistent top bar across all modes with `background: var
 - **THEN** the top bar right side SHALL show "59 °C" after the stylus bar, in DM Mono ink-mute color
 
 ### Requirement: Five application modes
-The UI SHALL support five modes: Standby, Play, Link, Re-Link, and Stylus. Mode switching via the Mode button is disabled — modes are only reachable via URL hash in dev mode or via WebSocket events (play/idle status).
+The UI SHALL support six modes: Standby, Play, Link, Re-Link, Stylus, and Sync. Mode switching via the Mode button is disabled — modes are only reachable via URL hash in dev mode or via WebSocket events (play/idle status).
 
 #### Scenario: Modes exist
 - **WHEN** the UI is initialized
-- **THEN** the mode list SHALL contain "standby", "play", "link", "re-link", and "stylus"
+- **THEN** the mode list SHALL contain "standby", "play", "link", "re-link", "stylus", and "sync"
 
 ### Requirement: Split-grid layout
 All modes displaying record information SHALL use a 1:1 horizontal split-grid layout with cover image on the left column and text information on the right column.
