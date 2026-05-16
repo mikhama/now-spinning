@@ -39,11 +39,19 @@ The UI SHALL display a persistent top bar across all modes with `background: var
 - **THEN** the top bar right side SHALL show "59 °C" after the stylus bar, in DM Mono ink-mute color
 
 ### Requirement: Five application modes
-The UI SHALL support six modes: Standby, Play, Link, Re-Link, Stylus, and Sync. Mode switching via the Mode button is disabled — modes are only reachable via URL hash in dev mode or via WebSocket events (play/idle status).
+The UI SHALL support six modes: Standby, Play, Link, Re-Link, Stylus, and Sync. Mode switching via the Mode button SHALL cycle through: standby → sync → link → re-link → stylus → standby. Play mode SHALL only be reachable via WebSocket `status` events. Hash-based dev routing SHALL remain functional.
 
 #### Scenario: Modes exist
 - **WHEN** the UI is initialized
 - **THEN** the mode list SHALL contain "standby", "play", "link", "re-link", "stylus", and "sync"
+
+#### Scenario: Mode button cycles defined order
+- **WHEN** the mode button is pressed in standby mode
+- **THEN** the mode SHALL advance to "sync", then "link", "re-link", "stylus", and back to "standby"
+
+#### Scenario: Play mode not in button cycle
+- **WHEN** the mode button is pressed
+- **THEN** "play" mode SHALL never be entered via the mode button
 
 ### Requirement: Split-grid layout
 All modes displaying record information SHALL use a 1:1 horizontal split-grid layout with cover image on the left column and text information on the right column.
@@ -203,11 +211,7 @@ Action bar buttons SHALL have no border-radius, no spacing between them, fill th
 - **THEN** it SHALL fill the full width and height of its grid cell with dark ink background and paper-colored monospace text
 
 ### Requirement: Disabled action buttons
-The Mode button, Link button, Re-Link button, and Reset Stylus button SHALL be rendered but have no click handlers attached (future implementation).
-
-#### Scenario: Mode button does nothing
-- **WHEN** the user clicks the Mode button
-- **THEN** nothing SHALL happen — no mode change
+The Link button, Re-Link button, and Reset Stylus button SHALL be rendered but have no click handlers attached (future implementation).
 
 #### Scenario: Link button does nothing
 - **WHEN** the user clicks the Link or Re-Link button

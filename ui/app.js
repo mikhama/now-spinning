@@ -24,10 +24,21 @@ var state = {
 
 var MODES = ["standby", "play", "link", "re-link", "stylus", "sync"];
 
+// Mode button cycle order (play is not reachable via button)
+var MODE_BUTTON_CYCLE = ["standby", "sync", "link", "re-link", "stylus"];
+
 function nextMode() {
-    var i = MODES.indexOf(state.mode);
-    state.mode = MODES[(i + 1) % MODES.length];
+    // Map error sub-states to their parent mode for cycle lookup
+    var current = state.mode;
+    if (current === "play") {
+        state.mode = "standby";
+    } else {
+        var i = MODE_BUTTON_CYCLE.indexOf(current);
+        if (i === -1) i = 0; // fallback to standby
+        state.mode = MODE_BUTTON_CYCLE[(i + 1) % MODE_BUTTON_CYCLE.length];
+    }
     state.linkError = false;
+    state.standbyError = null;
     render();
 }
 
@@ -50,9 +61,8 @@ function getLinkedRecords() {
 }
 
 function getReLinkRecord() {
-    var linked = getLinkedRecords();
-    if (linked.length === 0) return null;
-    return linked[state.reLinkRecordIndex] || null;
+    if (state.records.length === 0) return null;
+    return state.records[state.reLinkRecordIndex] || null;
 }
 
 function getCurrentStylus() {
@@ -139,7 +149,7 @@ function render() {
             break;
         case "re-link":
             renderReLink();
-            document.getElementById(getLinkedRecords().length > 0 ? "actions-re-link" : "actions-standby").classList.add("active");
+            document.getElementById(state.records.length > 0 ? "actions-re-link" : "actions-standby").classList.add("active");
             break;
         case "stylus":
             renderStylus();
@@ -255,6 +265,9 @@ function renderReLink() {
             statusEl.style.display = "";
             errorEl.style.display = "none";
         }
+    } else {
+        statusEl.style.display = "none";
+        errorEl.style.display = "none";
     }
 }
 
@@ -378,17 +391,15 @@ function nextRecord() {
 }
 
 function prevReLinkRecord() {
-    var linked = getLinkedRecords();
-    if (linked.length === 0) return;
-    state.reLinkRecordIndex = (state.reLinkRecordIndex - 1 + linked.length) % linked.length;
+    if (state.records.length === 0) return;
+    state.reLinkRecordIndex = (state.reLinkRecordIndex - 1 + state.records.length) % state.records.length;
     state.linkError = false;
     render();
 }
 
 function nextReLinkRecord() {
-    var linked = getLinkedRecords();
-    if (linked.length === 0) return;
-    state.reLinkRecordIndex = (state.reLinkRecordIndex + 1) % linked.length;
+    if (state.records.length === 0) return;
+    state.reLinkRecordIndex = (state.reLinkRecordIndex + 1) % state.records.length;
     state.linkError = false;
     render();
 }
@@ -457,16 +468,35 @@ function connectWebSocket() {
                 state.currentSideIndex = 0;
                 render();
                 break;
+            case "scan":
+                state.currentTrackIndex = 0;
+                state.currentSideIndex = 0;
+                if (msg.data.record_id === null) {
+                    state.standbyError = "nfc";
+                    state.currentRecordId = null;
+                } else {
+                    var found = state.records.find(function (r) { return r.id === msg.data.record_id; });
+                    if (found) {
+                        state.currentRecordId = msg.data.record_id;
+                        state.standbyError = null;
+                    } else {
+                        state.standbyError = "not-found";
+                        state.currentRecordId = null;
+                    }
+                }
+                state.mode = "standby";
+                render();
+                break;
             case "stylus_hours":
                 state.stylusHours[msg.data.stylus_id] = msg.data.hours;
                 render();
                 break;
             case "status":
                 if (!location.hash) {
-                    if (msg.data.status === "playing" && state.mode === "standby") {
+                    if (msg.data.status === "play" && state.mode !== "play") {
                         state.mode = "play";
                         render();
-                    } else if (msg.data.status === "idle" && state.mode === "play") {
+                    } else if (msg.data.status === "stop" && state.mode === "play") {
                         state.mode = "standby";
                         render();
                     }
@@ -474,6 +504,10 @@ function connectWebSocket() {
                 break;
             case "temperature_c":
                 state.temperature = msg.data.temp_c;
+                break;
+            case "link_error":
+                state.linkError = true;
+                render();
                 break;
         }
     };
@@ -586,4 +620,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("btn-prev-stylus").addEventListener("click", prevStylus);
     document.getElementById("btn-next-stylus").addEventListener("click", nextStylus);
+
+    // Mode buttons
+    ["btn-mode-standby", "btn-mode-link", "btn-mode-re-link", "btn-mode-stylus", "btn-mode-sync"].forEach(function (id) {
+        document.getElementById(id).addEventListener("click", nextMode);
+    });
 });

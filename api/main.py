@@ -1,12 +1,15 @@
 import json
 
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from flask_sock import Sock
 
 from api.mock_data import RECORDS, STYLI
 
 app = Flask(__name__, static_folder="../ui", static_url_path="")
 sock = Sock(app)
+
+# Connected WebSocket clients for event broadcasting
+connected_clients: set = set()
 
 
 @app.route("/")
@@ -93,21 +96,56 @@ def shutdown():
 
 
 # ---------------------------------------------------------------------------
+# Events (boardless mode event publishing)
+# ---------------------------------------------------------------------------
+
+@app.post("/events")
+def post_event():
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+    msg = json.dumps(data)
+    for client in list(connected_clients):
+        try:
+            client.send(msg)
+        except Exception:
+            connected_clients.discard(client)
+    return jsonify({"success": True})
+
+
+# ---------------------------------------------------------------------------
 # WebSocket
 # ---------------------------------------------------------------------------
 
 @sock.route("/ws")
 def ws(ws):
-    events = [
-        {"event": "stylus_hours", "data": {"hours": 89.6, "stylus_id": "1"}},
-        {"event": "temperature_c", "data": {"temp_c": 59}},
-        {"event": "current_record", "data": {"record_id": "1"}},
-        {"event": "status", "data": {"status": "idle"}},
-    ]
-    for event in events:
-        ws.send(json.dumps(event))
-    while True:
-        ws.receive()
+    connected_clients.add(ws)
+    try:
+        events = [
+            {"event": "stylus_hours", "data": {"hours": 89.6, "stylus_id": "1"}},
+            {"event": "temperature_c", "data": {"temp_c": 59}},
+            {"event": "current_record", "data": {"record_id": "1"}},
+            {"event": "status", "data": {"status": "idle"}},
+        ]
+        for event in events:
+            ws.send(json.dumps(event))
+        while True:
+            raw = ws.receive()
+            if raw is None:
+                break
+            try:
+                msg = json.loads(raw)
+                payload = json.dumps(msg)
+                for client in list(connected_clients):
+                    if client is not ws:
+                        try:
+                            client.send(payload)
+                        except Exception:
+                            connected_clients.discard(client)
+            except (json.JSONDecodeError, TypeError):
+                pass
+    finally:
+        connected_clients.discard(ws)
 
 
 # ---------------------------------------------------------------------------

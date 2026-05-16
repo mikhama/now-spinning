@@ -54,6 +54,24 @@ To debug all views:
 - http://127.0.0.1:5000/#stylus
 - http://127.0.0.1:5000/#stylus-error
 
+To send events in boardless mode (from another terminal):
+```bash
+# Scan a record
+curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"1"}}' localhost:5000/events
+
+# NFC reading error
+curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":null}}' localhost:5000/events
+
+# Turntable started spinning
+curl -X POST -H "Content-Type: application/json" -d '{"event":"status","data":{"status":"play"}}' localhost:5000/events
+
+# Turntable stopped
+curl -X POST -H "Content-Type: application/json" -d '{"event":"status","data":{"status":"stop"}}' localhost:5000/events
+
+# Link error
+curl -X POST -H "Content-Type: application/json" -d '{"event":"link_error","data":{"record_id":"1"}}' localhost:5000/events
+```
+
 ## Utils
 
 To read NFC tag:
