@@ -349,7 +349,7 @@ body::before {
     height: 35%;
 }
 
-#mode-sync {
+#mode-sync.active {
     display: flex;
     align-items: center;
     justify-content: center;
