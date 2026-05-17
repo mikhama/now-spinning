@@ -121,16 +121,12 @@ In Play mode, the UI SHALL display the current record's cover image, catalogue n
 - **WHEN** the user clicks the Side button in Play mode
 - **THEN** the UI SHALL cycle to the next side and reset the track index to 0
 
-### Requirement: Link mode — record browsing
-In Link mode, the UI SHALL display all records (linked and not linked) with cover image, catalogue number, artist, title, and link status tag. Prev/Next buttons navigate through all records.
+### Requirement: Link mode — unlinked record browsing
+In Link mode, the UI SHALL display only unlinked records (where `linked` is false) with cover image, catalogue number, artist, title, and link status tag. Prev/Next buttons navigate through unlinked records only.
 
 #### Scenario: Record is not linked
 - **WHEN** the mode is Link and the current record has `linked: false`
 - **THEN** the UI SHALL show a "Not Linked" status tag
-
-#### Scenario: Record is linked
-- **WHEN** the mode is Link and the current record has `linked: true`
-- **THEN** the UI SHALL show a "Linked" status tag
 
 #### Scenario: Link error
 - **WHEN** the link error flag is set
@@ -138,7 +134,25 @@ In Link mode, the UI SHALL display all records (linked and not linked) with cove
 
 #### Scenario: Navigate records in Link mode
 - **WHEN** the user clicks "<Prev" or "Next>" in Link mode
-- **THEN** the UI SHALL navigate to the previous or next record in the full list
+- **THEN** the UI SHALL navigate to the previous or next record in the unlinked records list, wrapping at boundaries
+
+### Requirement: Link mode — empty state view
+Link mode SHALL include an empty state grid (hidden by default) with a cover placeholder displaying "No Unlinked Records" text, using the same visual pattern as the standby "Record Not Found" placeholder.
+
+#### Scenario: Empty state HTML structure
+- **WHEN** the link mode section is rendered
+- **THEN** it SHALL contain a hidden empty-state grid with a cover-placeholder and "No Unlinked Records" text
+
+### Requirement: Link mode — renders empty state when no unlinked records
+The `renderLink()` function SHALL check for unlinked records. When none exist, it SHALL hide the record grid and show the empty state grid. When unlinked records exist, it SHALL show the record grid and hide the empty state.
+
+#### Scenario: No unlinked records available
+- **WHEN** `renderLink()` is called and no unlinked records exist
+- **THEN** the record grid SHALL be hidden and the empty state grid SHALL be visible
+
+#### Scenario: Unlinked records available
+- **WHEN** `renderLink()` is called and unlinked records exist
+- **THEN** the record grid SHALL be visible and the empty state grid SHALL be hidden
 
 ### Requirement: Re-Link mode — linked records only
 In Re-Link mode, the UI SHALL display only records that have `linked: true`. It SHALL have its own navigation index separate from Link mode.
@@ -308,3 +322,14 @@ The UI SHALL support URL hash fragments to switch to any mode or error state for
 #### Scenario: Invalid or empty hash
 - **WHEN** the URL hash is empty or contains an unrecognized mode name
 - **THEN** the UI SHALL ignore the hash and render normally
+
+### Requirement: UI re-fetches data after sync
+After sync completes (success or error), the UI SHALL re-fetch records and styli from the API to ensure all views have current data without requiring a page refresh.
+
+#### Scenario: Sync completes successfully
+- **WHEN** the sync SSE stream sends "Sync complete"
+- **THEN** the UI SHALL call `fetchRecords()` and `fetchStyli()` to refresh state
+
+#### Scenario: Sync fails
+- **WHEN** the sync SSE stream sends "Sync error"
+- **THEN** the UI SHALL still call `fetchRecords()` and `fetchStyli()` to refresh state

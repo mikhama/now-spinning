@@ -24,7 +24,23 @@ def index():
 
 @app.get("/records")
 def list_records():
-    return jsonify([r.model_dump() for r in RECORDS.values()])
+    from api.services.db.database import get_all_records, init_db
+    init_db()
+    rows = get_all_records()
+    records = []
+    for row in rows:
+        sides = json.loads(row["sides"]) if isinstance(row["sides"], str) else row["sides"]
+        records.append({
+            "id": row["id"],
+            "release_id": row["release_id"],
+            "master_id": row["master_id"],
+            "title": row["title"],
+            "artist": row["artist"],
+            "cover_image": "images/albums/" + row["release_id"] + ".jpeg",
+            "linked": bool(row["linked"]),
+            "sides": sides,
+        })
+    return jsonify(records)
 
 
 @app.get("/records/<id>")
@@ -101,9 +117,16 @@ def sync():
 
             yield "data: " + json.dumps({"status": "Downloading collection"}) + "\n\n"
             clone_or_pull(REPO_URL, TMP_REPO_DIR)
+            app.logger.info("Git sync complete: %s", TMP_REPO_DIR)
 
             yield "data: " + json.dumps({"status": "Updating database"}) + "\n\n"
             styli, records = extract_data(TMP_REPO_DIR)
+            app.logger.info("Extracted %d styli, %d records", len(styli), len(records))
+
+            if not records:
+                app.logger.warning("No records extracted — check repo structure at %s", TMP_REPO_DIR)
+                yield "data: " + json.dumps({"status": "Sync warning: 0 records found"}) + "\n\n"
+
             upsert_styli(styli)
             upsert_records(records)
             copy_images(TMP_REPO_DIR, IMAGES_DEST)
@@ -111,7 +134,7 @@ def sync():
 
             yield "data: " + json.dumps({"status": "Sync complete"}) + "\n\n"
         except Exception as e:
-            app.logger.error("Sync error: %s", e)
+            app.logger.error("Sync error: %s", e, exc_info=True)
             yield "data: " + json.dumps({"status": "Sync error"}) + "\n\n"
 
     return Response(generate(), mimetype="text/event-stream")

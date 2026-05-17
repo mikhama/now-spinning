@@ -65,7 +65,7 @@
 
         <!-- Link mode -->
         <section id="mode-link" class="mode-section">
-            <div class="split-grid">
+            <div class="split-grid" id="link-grid">
                 <div class="cover-col">
                     <img id="link-cover" class="cover-image" alt="Cover">
                 </div>
@@ -76,6 +76,14 @@
                     <div id="link-status" class="link-status"></div>
                     <div id="link-error" class="error-state">Link Error</div>
                 </div>
+            </div>
+            <div class="split-grid" id="link-empty-grid" style="display:none">
+                <div class="cover-col">
+                    <div class="cover-placeholder">
+                        <span class="cover-placeholder-text">No Unlinked Records</span>
+                    </div>
+                </div>
+                <div class="info-col"></div>
             </div>
         </section>
 

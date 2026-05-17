@@ -52,12 +52,17 @@ function getCurrentRecord() {
 }
 
 function getLinkRecord() {
-    if (state.records.length === 0) return null;
-    return state.records[state.linkRecordIndex] || null;
+    var unlinked = getUnlinkedRecords();
+    if (unlinked.length === 0) return null;
+    return unlinked[state.linkRecordIndex % unlinked.length] || null;
 }
 
 function getLinkedRecords() {
     return state.records.filter(function (r) { return r.linked; });
+}
+
+function getUnlinkedRecords() {
+    return state.records.filter(function (r) { return !r.linked; });
 }
 
 function getReLinkRecord() {
@@ -145,7 +150,7 @@ function render() {
             break;
         case "link":
             renderLink();
-            document.getElementById(state.records.length > 0 ? "actions-link" : "actions-standby").classList.add("active");
+            document.getElementById(getUnlinkedRecords().length > 0 ? "actions-link" : "actions-standby").classList.add("active");
             break;
         case "re-link":
             renderReLink();
@@ -218,6 +223,8 @@ function renderPlay() {
 
 function renderLink() {
     var record = getLinkRecord();
+    var grid = document.getElementById("link-grid");
+    var emptyGrid = document.getElementById("link-empty-grid");
     var cover = document.getElementById("link-cover");
     var artist = document.getElementById("link-artist");
     var title = document.getElementById("link-title");
@@ -225,20 +232,27 @@ function renderLink() {
     var statusEl = document.getElementById("link-status");
     var errorEl = document.getElementById("link-error");
 
-    if (record) {
-        cover.src = coverImageUrl(record);
-        idEl.textContent = String(record.id).padStart(2, "0");
-        artist.textContent = record.artist;
-        title.textContent = record.title;
+    if (!record) {
+        grid.style.display = "none";
+        emptyGrid.style.display = "";
+        return;
+    }
 
-        if (state.linkError) {
-            statusEl.style.display = "none";
-            errorEl.style.display = "";
-        } else {
-            statusEl.textContent = record.linked ? "Linked" : "Not Linked";
-            statusEl.style.display = "";
-            errorEl.style.display = "none";
-        }
+    grid.style.display = "";
+    emptyGrid.style.display = "none";
+
+    cover.src = coverImageUrl(record);
+    idEl.textContent = String(record.id).padStart(2, "0");
+    artist.textContent = record.artist;
+    title.textContent = record.title;
+
+    if (state.linkError) {
+        statusEl.style.display = "none";
+        errorEl.style.display = "";
+    } else {
+        statusEl.textContent = record.linked ? "Linked" : "Not Linked";
+        statusEl.style.display = "";
+        errorEl.style.display = "none";
     }
 }
 
@@ -336,6 +350,7 @@ function startSync() {
                         statusEl.textContent = payload.status;
                         if (payload.status === "Sync complete" || payload.status === "Sync error") {
                             statusEl.classList.remove("syncing");
+                            fetchRecords().then(function () { fetchStyli(); });
                         }
                     }
                 }
@@ -422,15 +437,17 @@ function resetStylus() {
 // ---------------------------------------------------------------------------
 
 function prevRecord() {
-    if (state.records.length === 0) return;
-    state.linkRecordIndex = (state.linkRecordIndex - 1 + state.records.length) % state.records.length;
+    var unlinked = getUnlinkedRecords();
+    if (unlinked.length === 0) return;
+    state.linkRecordIndex = (state.linkRecordIndex - 1 + unlinked.length) % unlinked.length;
     state.linkError = false;
     render();
 }
 
 function nextRecord() {
-    if (state.records.length === 0) return;
-    state.linkRecordIndex = (state.linkRecordIndex + 1) % state.records.length;
+    var unlinked = getUnlinkedRecords();
+    if (unlinked.length === 0) return;
+    state.linkRecordIndex = (state.linkRecordIndex + 1) % unlinked.length;
     state.linkError = false;
     render();
 }

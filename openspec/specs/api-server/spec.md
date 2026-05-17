@@ -46,11 +46,11 @@ The system SHALL define Pydantic models in `api/models.py`.
 - **THEN** it SHALL have fields: `id` (str), `name` (str), `hours` (float)
 
 ### Requirement: GET records endpoint
-The system SHALL provide a `GET /records` endpoint that returns all records.
+The system SHALL provide a `GET /records` endpoint that reads records from the SQLite database (not mock data), including the `linked` field (boolean) and a derived `cover_image` path for each record.
 
-#### Scenario: List all records
+#### Scenario: List all records with linked status
 - **WHEN** a GET request is made to `/records`
-- **THEN** the server SHALL respond with a JSON array of all record objects
+- **THEN** the server SHALL respond with a JSON array of all record objects from the database, each including `linked: true` or `linked: false` and `cover_image` derived as `images/albums/<release_id>.jpeg`
 
 ### Requirement: GET records by id endpoint
 The system SHALL provide a `GET /records/<id>` endpoint that returns a single record.
@@ -158,4 +158,11 @@ The WebSocket endpoint SHALL maintain a set of connected clients and support bro
 #### Scenario: Multiple connected clients
 - **WHEN** two WebSocket clients are connected and an event is published
 - **THEN** both clients SHALL receive the event
+
+### Requirement: Sync endpoint reports errors cleanly
+The sync endpoint SHALL log full error details (with traceback) to backend logs and send a clean "Sync error" message to the frontend SSE stream without exposing internal paths or details.
+
+#### Scenario: Sync fails due to missing files
+- **WHEN** the sync pipeline raises an error
+- **THEN** the SSE stream SHALL send `{"status": "Sync error"}` and the backend log SHALL contain the full exception with traceback
 

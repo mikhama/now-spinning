@@ -29,7 +29,8 @@ def init_db():
                 master_id TEXT,
                 title TEXT,
                 artist TEXT,
-                sides TEXT
+                sides TEXT,
+                linked INTEGER DEFAULT 0
             );
             CREATE TABLE IF NOT EXISTS status (
                 updated_at TEXT
@@ -92,5 +93,15 @@ def update_sync_date():
         else:
             conn.execute("INSERT INTO status (updated_at) VALUES (?)", (today,))
         conn.commit()
+    finally:
+        conn.close()
+
+
+def get_all_records():
+    conn = _get_connection()
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute("SELECT id, release_id, master_id, title, artist, sides, linked FROM record").fetchall()
+        return [dict(row) for row in rows]
     finally:
         conn.close()
