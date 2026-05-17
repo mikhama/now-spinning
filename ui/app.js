@@ -301,7 +301,52 @@ function renderStylus() {
 }
 
 function renderSync() {
-    document.getElementById("sync-status").textContent = "Step 1/3. Downloading collection updates...";
+    fetch("/sync/status")
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            var text = data.last_sync ? "Last updated " + data.last_sync : "Last updated never";
+            document.getElementById("sync-status").textContent = text;
+        })
+        .catch(function () {
+            document.getElementById("sync-status").textContent = "Last updated never";
+        });
+}
+
+function startSync() {
+    var statusEl = document.getElementById("sync-status");
+    statusEl.classList.add("syncing");
+    fetch("/sync", { method: "POST" }).then(function (response) {
+        var reader = response.body.getReader();
+        var decoder = new TextDecoder();
+        var buffer = "";
+
+        function read() {
+            reader.read().then(function (result) {
+                if (result.done) {
+                    statusEl.classList.remove("syncing");
+                    return;
+                }
+                buffer += decoder.decode(result.value, { stream: true });
+                var lines = buffer.split("\n");
+                buffer = lines.pop();
+                for (var i = 0; i < lines.length; i++) {
+                    var line = lines[i];
+                    if (line.indexOf("data: ") === 0) {
+                        var payload = JSON.parse(line.slice(6));
+                        statusEl.textContent = payload.status;
+                        if (payload.status === "Sync complete" || payload.status === "Sync error") {
+                            statusEl.classList.remove("syncing");
+                        }
+                    }
+                }
+                read();
+            });
+        }
+        read();
+    }).catch(function () {
+        statusEl.textContent = "Sync error";
+        statusEl.classList.remove("syncing");
+    });
 }
 
 // ---------------------------------------------------------------------------
@@ -625,4 +670,7 @@ document.addEventListener("DOMContentLoaded", function () {
     ["btn-mode-standby", "btn-mode-link", "btn-mode-re-link", "btn-mode-stylus", "btn-mode-sync"].forEach(function (id) {
         document.getElementById(id).addEventListener("click", nextMode);
     });
+
+    // Sync button
+    document.getElementById("btn-sync").addEventListener("click", startSync);
 });

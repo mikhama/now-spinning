@@ -1,9 +1,4 @@
-# sync-view Specification
-
-## Purpose
-UI view for triggering collection sync and displaying real-time sync progress.
-
-## Requirements
+## MODIFIED Requirements
 
 ### Requirement: Sync view displays status text
 The sync view SHALL display a single status line centered within a bordered frame. The status text SHALL use the same font styling as the stylus hours display (DM Mono, monospace). The initial status text SHALL show the last sync date in format "Last updated YYYY/MM/DD" or "Last updated never" if no sync has been performed.

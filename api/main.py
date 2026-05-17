@@ -1,6 +1,7 @@
 import json
+import os
 
-from flask import Flask, jsonify, request
+from flask import Flask, Response, jsonify, request
 from flask_sock import Sock
 
 from api.mock_data import RECORDS, STYLI
@@ -39,11 +40,6 @@ def link_record(id):
     return jsonify({"success": True})
 
 
-@app.post("/records/sync")
-def sync_records():
-    return jsonify({"success": True})
-
-
 # ---------------------------------------------------------------------------
 # Styli
 # ---------------------------------------------------------------------------
@@ -66,9 +62,59 @@ def reset_stylus(id):
     return jsonify({"success": True})
 
 
-@app.post("/styli/sync")
-def sync_styli():
-    return jsonify({"success": True})
+# ---------------------------------------------------------------------------
+# Sync
+# ---------------------------------------------------------------------------
+
+REPO_URL = "git@github.com:mikhama/my-musical-journey.git"
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+TMP_REPO_DIR = os.path.join(PROJECT_ROOT, "tmp", "my-musical-journey")
+IMAGES_DEST = os.path.join(PROJECT_ROOT, "ui", "images", "albums")
+
+
+@app.get("/sync/status")
+def sync_status():
+    from api.services.db.database import get_last_sync_date, init_db
+    init_db()
+    last = get_last_sync_date()
+    return jsonify({"last_sync": last})
+
+
+@app.post("/sync")
+def sync():
+    from api.services.db.database import (
+        init_db,
+        get_last_sync_date,
+        update_sync_date,
+        upsert_records,
+        upsert_styli,
+    )
+    from api.services.sync.data_extractor import copy_images, extract_data
+    from api.services.sync.git_sync import clone_or_pull
+
+    def generate():
+        try:
+            init_db()
+            last = get_last_sync_date()
+            status_text = "Last updated " + (last if last else "never")
+            yield "data: " + json.dumps({"status": status_text}) + "\n\n"
+
+            yield "data: " + json.dumps({"status": "Downloading collection"}) + "\n\n"
+            clone_or_pull(REPO_URL, TMP_REPO_DIR)
+
+            yield "data: " + json.dumps({"status": "Updating database"}) + "\n\n"
+            styli, records = extract_data(TMP_REPO_DIR)
+            upsert_styli(styli)
+            upsert_records(records)
+            copy_images(TMP_REPO_DIR, IMAGES_DEST)
+            update_sync_date()
+
+            yield "data: " + json.dumps({"status": "Sync complete"}) + "\n\n"
+        except Exception as e:
+            app.logger.error("Sync error: %s", e)
+            yield "data: " + json.dumps({"status": "Sync error"}) + "\n\n"
+
+    return Response(generate(), mimetype="text/event-stream")
 
 
 # ---------------------------------------------------------------------------

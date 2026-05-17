@@ -364,6 +364,17 @@ body::before {
     text-align: center;
 }
 
+.sync-status-text.syncing::before {
+    content: '●';
+    display: inline-block;
+    margin-right: 0.5em;
+    animation: blink 1s step-start infinite;
+}
+
+@keyframes blink {
+    50% { opacity: 0; }
+}
+
 .stylus-name-display {
     font-family: 'Fraunces', serif;
     font-style: italic;
