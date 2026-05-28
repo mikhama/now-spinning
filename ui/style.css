@@ -245,6 +245,7 @@ body::before {
     justify-content: flex-start;
     position: relative;
     height: 20rem;
+    min-width: 0;
     padding-top: 3rem;
 }
 
@@ -321,6 +322,50 @@ body::before {
     margin-top: 4rem;
     padding-top: 0.5rem;
     border-top: 1px solid var(--ink-soft);
+}
+
+/* === Marquee Overflow Treatment === */
+.marquee-field {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    --marquee-gap-size: 4rem;
+}
+
+.marquee-track {
+    display: inline-flex;
+    align-items: baseline;
+    min-width: max-content;
+    white-space: nowrap;
+}
+
+.marquee-copy {
+    display: inline-block;
+}
+
+.marquee-gap {
+    flex: 0 0 var(--marquee-gap-size);
+}
+
+.marquee-field:not(.is-marquee) .marquee-gap,
+.marquee-field:not(.is-marquee) .marquee-copy--duplicate {
+    display: none;
+}
+
+@keyframes marquee-tick {
+    0%, 10% {
+        transform: translateX(0);
+    }
+    90%, 100% {
+        transform: translateX(calc(-50% - (var(--marquee-gap-size) / 2)));
+    }
+}
+
+.marquee-field.is-marquee .marquee-track {
+    animation: marquee-tick 18s linear infinite;
 }
 
 .link-status {

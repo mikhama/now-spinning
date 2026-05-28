@@ -2,9 +2,7 @@
 
 ## Purpose
 Design system for the Now Spinning turntable controller UI, defining colors, typography, sizing units, and visual treatments.
-
 ## Requirements
-
 ### Requirement: Rem-based sizing units
 All dimensional values (font sizes, widths, heights, padding, margins, gaps, box-shadows) SHALL use rem units. The root font-size SHALL be calculated as `calc(var(--screen-width) / 50 * var(--dpi-correction))` where `--screen-width` is the physical display width in cm (default 9.37cm) and `--dpi-correction` compensates for browser DPI assumptions (default 1). Body dimensions SHALL be `50rem × 30rem`. Border widths (1px, 2px) remain in px for crispness.
 
@@ -135,3 +133,23 @@ The record ID SHALL display as a zero-padded number (e.g., "01") without a hash 
 #### Scenario: Record ID visual style
 - **WHEN** a record ID is displayed
 - **THEN** it SHALL use Gloock font with amber-deep color and amber-deep border box, positioned top-right
+
+### Requirement: Marquee overflow treatment for record metadata
+The design system SHALL provide a reusable marquee-style overflow treatment for record metadata text. Overflowing artist, album, and track strings SHALL render inside a single-line clipped viewport that is constrained to the available lane width, preserve their existing typography, and animate horizontally in a looping ticker presentation only when the text exceeds the available width.
+
+#### Scenario: Static presentation for non-overflowing text
+- **WHEN** a metadata string fits within the available width
+- **THEN** the marquee treatment SHALL render the text fully on one line without horizontal animation
+
+#### Scenario: Ticker presentation for overflowing text
+- **WHEN** a metadata string exceeds the available width
+- **THEN** the marquee treatment SHALL keep the text on one line, clip it to the field width, and animate it horizontally with a looping ticker-style motion after an initial pause
+
+#### Scenario: Shared ticker structure is reusable
+- **WHEN** the marquee treatment is applied to artist, album, or track text
+- **THEN** it SHALL use the shared clipped lane and ticker-track pattern defined by the design system rather than per-view bespoke overflow markup or animation behavior
+
+#### Scenario: Existing typography is preserved
+- **WHEN** the marquee treatment is applied to artist, album, or track text
+- **THEN** the field SHALL keep the font family, size, weight, style, and color already defined for that metadata role
+

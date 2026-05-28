@@ -97,6 +97,28 @@ function getBarColor(hours, capacityMin) {
 // Render
 // ---------------------------------------------------------------------------
 
+function setMetaText(trackEl, text) {
+    var fieldEl = trackEl.parentElement;
+    var primaryEl = trackEl.querySelector('.marquee-copy--primary');
+    var duplicateEl = trackEl.querySelector('.marquee-copy--duplicate');
+    var value = text || '';
+
+    fieldEl.classList.remove('is-marquee');
+    primaryEl.textContent = value;
+    duplicateEl.textContent = value;
+
+    if (!value) {
+        return;
+    }
+
+    var primaryWidth = primaryEl.scrollWidth;
+    var fieldWidth = fieldEl.clientWidth;
+
+    if (primaryWidth > fieldWidth) {
+        fieldEl.classList.add('is-marquee');
+    }
+}
+
 function getModeLabel() {
     if (state.mode === "link") {
         var record = getLinkRecord();
@@ -191,8 +213,8 @@ function renderStandby() {
         sideBtn.style.visibility = "visible";
         document.getElementById("standby-cover").src = coverImageUrl(record);
         document.getElementById("standby-id").textContent = String(record.id).padStart(2, "0");
-        document.getElementById("standby-artist").textContent = record.artist;
-        document.getElementById("standby-title").textContent = record.title;
+        setMetaText(document.getElementById("standby-artist"), record.artist);
+        setMetaText(document.getElementById("standby-title"), record.title);
         if (record.sides && record.sides.length > 0) {
             var side = record.sides[state.currentSideIndex] || record.sides[0];
             sideBtn.textContent = "Side " + side.id;
@@ -214,9 +236,9 @@ function renderPlay() {
 
         cover.src = coverImageUrl(record);
         document.getElementById("play-id").textContent = String(record.id).padStart(2, "0");
-        document.getElementById("play-artist").textContent = record.artist;
-        document.getElementById("play-title").textContent = record.title;
-        trackEl.textContent = track ? track.title : "";
+        setMetaText(document.getElementById("play-artist"), record.artist);
+        setMetaText(document.getElementById("play-title"), record.title);
+        setMetaText(trackEl, track ? track.title : "");
         sideLabel.textContent = "Side " + side.id;
     }
 }
@@ -243,8 +265,8 @@ function renderLink() {
 
     cover.src = coverImageUrl(record);
     idEl.textContent = String(record.id).padStart(2, "0");
-    artist.textContent = record.artist;
-    title.textContent = record.title;
+    setMetaText(artist, record.artist);
+    setMetaText(title, record.title);
 
     if (state.linkError) {
         statusEl.style.display = "none";
@@ -268,8 +290,8 @@ function renderReLink() {
     if (record) {
         cover.src = coverImageUrl(record);
         idEl.textContent = String(record.id).padStart(2, "0");
-        artist.textContent = record.artist;
-        title.textContent = record.title;
+        setMetaText(artist, record.artist);
+        setMetaText(title, record.title);
 
         if (state.linkError) {
             statusEl.style.display = "none";
@@ -656,6 +678,18 @@ document.addEventListener("DOMContentLoaded", function () {
         connectWebSocket();
         fetchTemperature();
         setInterval(fetchTemperature, 30000);
+
+        // Recompute overflow state after fonts finish loading
+        if (document.fonts && document.fonts.ready) {
+            document.fonts.ready.then(function () { render(); });
+        }
+    });
+
+    // Recompute overflow state on window resize (debounced)
+    var resizeTimer;
+    window.addEventListener('resize', function () {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function () { render(); }, 150);
     });
 
     window.addEventListener("hashchange", function () {
