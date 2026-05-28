@@ -18,6 +18,12 @@ var state = {
     standbyError: null, // null | "nfc" | "not-found"
 };
 
+var lastRendered = {
+    topBar: null,
+    visibility: null,
+    section: null,
+};
+
 // ---------------------------------------------------------------------------
 // Mode switching
 // ---------------------------------------------------------------------------
@@ -97,26 +103,36 @@ function getBarColor(hours, capacityMin) {
 // Render
 // ---------------------------------------------------------------------------
 
-function setMetaText(trackEl, text) {
+function measureMetaOverflow(trackEl) {
     var fieldEl = trackEl.parentElement;
     var primaryEl = trackEl.querySelector('.marquee-copy--primary');
-    var duplicateEl = trackEl.querySelector('.marquee-copy--duplicate');
-    var value = text || '';
+    var value = primaryEl.textContent;
 
     fieldEl.classList.remove('is-marquee');
-    primaryEl.textContent = value;
-    duplicateEl.textContent = value;
 
     if (!value) {
         return;
     }
 
-    var primaryWidth = primaryEl.scrollWidth;
-    var fieldWidth = fieldEl.clientWidth;
-
-    if (primaryWidth > fieldWidth) {
+    if (primaryEl.scrollWidth > fieldEl.clientWidth) {
         fieldEl.classList.add('is-marquee');
     }
+}
+
+function setMetaText(trackEl, text) {
+    var primaryEl = trackEl.querySelector('.marquee-copy--primary');
+    var duplicateEl = trackEl.querySelector('.marquee-copy--duplicate');
+    var value = text || '';
+
+    if (primaryEl.textContent === value && duplicateEl.textContent === value) {
+        return false;
+    }
+
+    primaryEl.textContent = value;
+    duplicateEl.textContent = value;
+
+    measureMetaOverflow(trackEl);
+    return true;
 }
 
 function getModeLabel() {
@@ -129,15 +145,170 @@ function getModeLabel() {
     return { standby: "Standby", play: "Play", stylus: "Stylus", sync: "Sync" }[state.mode] || state.mode;
 }
 
-function render() {
-    // Top bar — mode label
-    document.getElementById("mode-label").textContent = getModeLabel();
+function getActiveActionGroupId() {
+    switch (state.mode) {
+        case "standby":
+            return "actions-standby";
+        case "play":
+            return "actions-play";
+        case "link":
+            return getUnlinkedRecords().length > 0 ? "actions-link" : "actions-standby";
+        case "re-link":
+            return state.records.length > 0 ? "actions-re-link" : "actions-standby";
+        case "stylus":
+            return state.styli.length > 0 ? "actions-stylus" : "actions-standby";
+        case "sync":
+            return "actions-sync";
+        default:
+            return null;
+    }
+}
 
-    // Top bar — stylus compact bar + temperature
+function getTopBarInputs() {
     var topStylus = state.styli.length > 0 ? state.styli[0] : null;
+    var topHours = topStylus ? getStylusHours(topStylus) : null;
+
+    return {
+        modeLabel: getModeLabel(),
+        topStylusId: topStylus ? topStylus.id : null,
+        topHours: topHours,
+        topCapacityMax: topStylus ? topStylus.capacity_max : null,
+        topCapacityMin: topStylus ? topStylus.capacity_min : null,
+        temperature: state.temperature,
+    };
+}
+
+function getVisibilityInputs() {
+    return {
+        mode: state.mode,
+        actionGroupId: getActiveActionGroupId(),
+    };
+}
+
+function getActiveSectionInputs() {
+    var record;
+    var side;
+    var track;
+    var stylus;
+
+    switch (state.mode) {
+        case "standby":
+            record = getCurrentRecord();
+            side = record && record.sides && record.sides.length > 0 ? (record.sides[state.currentSideIndex] || record.sides[0]) : null;
+            return {
+                mode: state.mode,
+                standbyError: state.standbyError,
+                recordId: record ? record.id : null,
+                recordArtist: record ? record.artist : "",
+                recordTitle: record ? record.title : "",
+                recordCover: coverImageUrl(record),
+                sideId: side ? side.id : null,
+            };
+        case "play":
+            record = getCurrentRecord();
+            side = record && record.sides && record.sides.length > 0 ? (record.sides[state.currentSideIndex] || record.sides[0]) : null;
+            track = side && side.tracks ? (side.tracks[state.currentTrackIndex] || side.tracks[0]) : null;
+            return {
+                mode: state.mode,
+                recordId: record ? record.id : null,
+                recordArtist: record ? record.artist : "",
+                recordTitle: record ? record.title : "",
+                recordCover: coverImageUrl(record),
+                sideId: side ? side.id : null,
+                trackIndex: state.currentTrackIndex,
+                trackTitle: track ? track.title : "",
+            };
+        case "link":
+            record = getLinkRecord();
+            return {
+                mode: state.mode,
+                linkError: state.linkError,
+                unlinkedCount: getUnlinkedRecords().length,
+                recordId: record ? record.id : null,
+                recordArtist: record ? record.artist : "",
+                recordTitle: record ? record.title : "",
+                recordCover: coverImageUrl(record),
+                recordLinked: record ? record.linked : null,
+            };
+        case "re-link":
+            record = getReLinkRecord();
+            return {
+                mode: state.mode,
+                linkError: state.linkError,
+                recordCount: state.records.length,
+                recordId: record ? record.id : null,
+                recordArtist: record ? record.artist : "",
+                recordTitle: record ? record.title : "",
+                recordCover: coverImageUrl(record),
+            };
+        case "stylus":
+            stylus = getCurrentStylus();
+            return {
+                mode: state.mode,
+                stylusId: stylus ? stylus.id : null,
+                stylusName: stylus ? stylus.name : "",
+                stylusHours: stylus ? getStylusHours(stylus) : null,
+                stylusCapacityMax: stylus ? stylus.capacity_max : null,
+                stylusCapacityMin: stylus ? stylus.capacity_min : null,
+                stylusCount: state.styli.length,
+            };
+        case "sync":
+            return {
+                mode: state.mode,
+            };
+        default:
+            return {
+                mode: state.mode,
+            };
+    }
+}
+
+function getVisibleMarqueeTracks() {
+    switch (state.mode) {
+        case "standby":
+            return state.standbyError || !getCurrentRecord() ? [] : [
+                document.getElementById("standby-artist"),
+                document.getElementById("standby-title"),
+            ];
+        case "play":
+            return !getCurrentRecord() ? [] : [
+                document.getElementById("play-artist"),
+                document.getElementById("play-title"),
+                document.getElementById("play-track"),
+            ];
+        case "link":
+            return !getLinkRecord() ? [] : [
+                document.getElementById("link-artist"),
+                document.getElementById("link-title"),
+            ];
+        case "re-link":
+            return !getReLinkRecord() ? [] : [
+                document.getElementById("re-link-artist"),
+                document.getElementById("re-link-title"),
+            ];
+        default:
+            return [];
+    }
+}
+
+function remeasureActiveMarquees() {
+    var tracks = getVisibleMarqueeTracks();
+    for (var i = 0; i < tracks.length; i++) {
+        measureMetaOverflow(tracks[i]);
+    }
+}
+
+function didInputsChange(previousInputs, nextInputs) {
+    return JSON.stringify(previousInputs) !== JSON.stringify(nextInputs);
+}
+
+function renderTopBar() {
     var compactBar = document.getElementById("stylus-bar-compact");
     var compactFill = document.getElementById("stylus-bar-compact-fill");
     var tempDisplay = document.getElementById("temperature-display");
+    var topStylus = state.styli.length > 0 ? state.styli[0] : null;
+
+    document.getElementById("mode-label").textContent = getModeLabel();
 
     if (topStylus) {
         var topHours = getStylusHours(topStylus);
@@ -151,44 +322,86 @@ function render() {
     }
 
     tempDisplay.textContent = state.temperature !== null ? Math.round(state.temperature) + " °C" : "N/A";
+}
 
-    // Hide all mode sections and action groups
+function renderVisibility() {
     var sections = document.querySelectorAll(".mode-section");
-    for (var i = 0; i < sections.length; i++) sections[i].classList.remove("active");
     var groups = document.querySelectorAll(".action-group");
-    for (var j = 0; j < groups.length; j++) groups[j].classList.remove("active");
+    var actionGroupId = getActiveActionGroupId();
+    var i;
 
-    // Show current mode
+    for (i = 0; i < sections.length; i++) {
+        sections[i].classList.remove("active");
+    }
+    for (i = 0; i < groups.length; i++) {
+        groups[i].classList.remove("active");
+    }
+
     document.getElementById("mode-" + state.mode).classList.add("active");
+    if (actionGroupId) {
+        document.getElementById(actionGroupId).classList.add("active");
+    }
+}
 
+function renderActiveSection() {
     switch (state.mode) {
         case "standby":
             renderStandby();
-            document.getElementById("actions-standby").classList.add("active");
             break;
         case "play":
             renderPlay();
-            document.getElementById("actions-play").classList.add("active");
             break;
         case "link":
             renderLink();
-            document.getElementById(getUnlinkedRecords().length > 0 ? "actions-link" : "actions-standby").classList.add("active");
             break;
         case "re-link":
             renderReLink();
-            document.getElementById(state.records.length > 0 ? "actions-re-link" : "actions-standby").classList.add("active");
             break;
         case "stylus":
             renderStylus();
-            document.getElementById(state.styli.length > 0 ? "actions-stylus" : "actions-standby").classList.add("active");
-            if (state.styli.length === 0) {
-                document.getElementById("btn-side-standby").style.visibility = "hidden";
-            }
             break;
         case "sync":
             renderSync();
-            document.getElementById("actions-sync").classList.add("active");
             break;
+    }
+
+    remeasureActiveMarquees();
+}
+
+function render(options) {
+    var scope = options || {};
+    var shouldCheckTopBar = scope.topBar !== false;
+    var shouldCheckVisibility = scope.visibility !== false;
+    var shouldCheckSection = scope.section !== false;
+    var force = scope.force === true;
+    var visibilityChanged = false;
+    var topBarInputs;
+    var visibilityInputs;
+    var sectionInputs;
+
+    if (shouldCheckTopBar) {
+        topBarInputs = getTopBarInputs();
+        if (force || didInputsChange(lastRendered.topBar, topBarInputs)) {
+            renderTopBar();
+            lastRendered.topBar = topBarInputs;
+        }
+    }
+
+    if (shouldCheckVisibility) {
+        visibilityInputs = getVisibilityInputs();
+        if (force || didInputsChange(lastRendered.visibility, visibilityInputs)) {
+            renderVisibility();
+            lastRendered.visibility = visibilityInputs;
+            visibilityChanged = true;
+        }
+    }
+
+    if (shouldCheckSection) {
+        sectionInputs = getActiveSectionInputs();
+        if (force || visibilityChanged || didInputsChange(lastRendered.section, sectionInputs)) {
+            renderActiveSection();
+            lastRendered.section = sectionInputs;
+        }
     }
 }
 
@@ -409,11 +622,11 @@ function fetchTemperature() {
         .then(function (res) { return res.json(); })
         .then(function (data) {
             state.temperature = data.celsius;
-            render();
+            render({ topBar: true, visibility: false, section: false });
         })
         .catch(function () {
             state.temperature = null;
-            render();
+            render({ topBar: true, visibility: false, section: false });
         });
 }
 
@@ -572,8 +785,13 @@ function connectWebSocket() {
                 render();
                 break;
             case "stylus_hours":
+                var currentStylus = getCurrentStylus();
                 state.stylusHours[msg.data.stylus_id] = msg.data.hours;
-                render();
+                render({
+                    topBar: true,
+                    visibility: false,
+                    section: state.mode === "stylus" && currentStylus && currentStylus.id === msg.data.stylus_id,
+                });
                 break;
             case "status":
                 if (!location.hash) {
@@ -588,6 +806,7 @@ function connectWebSocket() {
                 break;
             case "temperature_c":
                 state.temperature = msg.data.temp_c;
+                render({ topBar: true, visibility: false, section: false });
                 break;
             case "link_error":
                 state.linkError = true;
@@ -679,17 +898,17 @@ document.addEventListener("DOMContentLoaded", function () {
         fetchTemperature();
         setInterval(fetchTemperature, 30000);
 
-        // Recompute overflow state after fonts finish loading
+        // Recompute overflow state after fonts finish loading without rewriting text.
         if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(function () { render(); });
+            document.fonts.ready.then(function () { remeasureActiveMarquees(); });
         }
     });
 
-    // Recompute overflow state on window resize (debounced)
+    // Recompute overflow state on window resize without rerendering the active section.
     var resizeTimer;
     window.addEventListener('resize', function () {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(function () { render(); }, 150);
+        resizeTimer = setTimeout(function () { remeasureActiveMarquees(); }, 150);
     });
 
     window.addEventListener("hashchange", function () {

@@ -254,7 +254,7 @@ body::before {
     max-height: 20rem;
     max-width: 20rem;
     width: 100%;
-    height: auto;
+    height: 100%;
     object-fit: contain;
     border: 1px solid var(--ink);
     box-shadow:
@@ -340,6 +340,7 @@ body::before {
     align-items: baseline;
     min-width: max-content;
     white-space: nowrap;
+    will-change: transform;
 }
 
 .marquee-copy {
@@ -356,10 +357,10 @@ body::before {
 }
 
 @keyframes marquee-tick {
-    0%, 10% {
+    0% {
         transform: translateX(0);
     }
-    90%, 100% {
+    100% {
         transform: translateX(calc(-50% - (var(--marquee-gap-size) / 2)));
     }
 }
