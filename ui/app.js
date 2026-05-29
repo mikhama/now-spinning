@@ -15,7 +15,8 @@ var state = {
     stylusHours: {},
     temperature: null,
     linkError: false,
-    standbyError: null, // null | "nfc" | "not-found"
+    standbyError: "not-found", // null | "nfc" | "not-found"
+    standbyRecordVisible: false,
 };
 
 var lastRendered = {
@@ -55,6 +56,53 @@ function nextMode() {
 function getCurrentRecord() {
     if (!state.currentRecordId || state.records.length === 0) return null;
     return state.records.find(function (r) { return r.id === state.currentRecordId; }) || null;
+}
+
+function getStandbyRecord() {
+    return state.standbyRecordVisible ? getCurrentRecord() : null;
+}
+
+function getSideForIndex(record, sideIndex) {
+    if (!record || !record.sides || record.sides.length === 0) return null;
+    return record.sides[sideIndex] || record.sides[0] || null;
+}
+
+function getSideLabel(side) {
+    return side && side.id ? side.id : "A";
+}
+
+function clearActiveRecord(standbyError) {
+    state.currentRecordId = null;
+    state.currentTrackIndex = 0;
+    state.currentSideIndex = 0;
+    state.standbyRecordVisible = false;
+    state.standbyError = standbyError || null;
+}
+
+function activateRecord(recordId, options) {
+    var scope = options || {};
+    var record;
+
+    if (!recordId) return false;
+
+    record = state.records.find(function (candidate) {
+        return candidate.id === recordId;
+    }) || null;
+
+    if (!record) return false;
+
+    state.currentRecordId = record.id;
+    state.currentTrackIndex = 0;
+    state.currentSideIndex = 0;
+
+    if (scope.showInStandby !== undefined) {
+        state.standbyRecordVisible = scope.showInStandby;
+    }
+    if (scope.clearStandbyError !== false) {
+        state.standbyError = null;
+    }
+
+    return true;
 }
 
 function getLinkRecord() {
@@ -193,8 +241,8 @@ function getActiveSectionInputs() {
 
     switch (state.mode) {
         case "standby":
-            record = getCurrentRecord();
-            side = record && record.sides && record.sides.length > 0 ? (record.sides[state.currentSideIndex] || record.sides[0]) : null;
+            record = getStandbyRecord();
+            side = getSideForIndex(record, state.currentSideIndex);
             return {
                 mode: state.mode,
                 standbyError: state.standbyError,
@@ -202,11 +250,11 @@ function getActiveSectionInputs() {
                 recordArtist: record ? record.artist : "",
                 recordTitle: record ? record.title : "",
                 recordCover: coverImageUrl(record),
-                sideId: side ? side.id : null,
+                sideId: side ? getSideLabel(side) : null,
             };
         case "play":
             record = getCurrentRecord();
-            side = record && record.sides && record.sides.length > 0 ? (record.sides[state.currentSideIndex] || record.sides[0]) : null;
+            side = getSideForIndex(record, state.currentSideIndex);
             track = side && side.tracks ? (side.tracks[state.currentTrackIndex] || side.tracks[0]) : null;
             return {
                 mode: state.mode,
@@ -214,7 +262,7 @@ function getActiveSectionInputs() {
                 recordArtist: record ? record.artist : "",
                 recordTitle: record ? record.title : "",
                 recordCover: coverImageUrl(record),
-                sideId: side ? side.id : null,
+                sideId: side ? getSideLabel(side) : null,
                 trackIndex: state.currentTrackIndex,
                 trackTitle: track ? track.title : "",
             };
@@ -266,7 +314,7 @@ function getActiveSectionInputs() {
 function getVisibleMarqueeTracks() {
     switch (state.mode) {
         case "standby":
-            return state.standbyError || !getCurrentRecord() ? [] : [
+            return state.standbyError || !getStandbyRecord() ? [] : [
                 document.getElementById("standby-artist"),
                 document.getElementById("standby-title"),
             ];
@@ -406,7 +454,7 @@ function render(options) {
 }
 
 function renderStandby() {
-    var record = getCurrentRecord();
+    var record = getStandbyRecord();
     var grid = document.getElementById("standby-grid");
     var errorGrid = document.getElementById("standby-error-grid");
     var notFoundGrid = document.getElementById("standby-not-found-grid");
@@ -429,8 +477,8 @@ function renderStandby() {
         setMetaText(document.getElementById("standby-artist"), record.artist);
         setMetaText(document.getElementById("standby-title"), record.title);
         if (record.sides && record.sides.length > 0) {
-            var side = record.sides[state.currentSideIndex] || record.sides[0];
-            sideBtn.textContent = "Side " + side.id;
+            var side = getSideForIndex(record, state.currentSideIndex);
+            sideBtn.textContent = "Side " + getSideLabel(side);
         }
     } else {
         notFoundGrid.style.display = "";
@@ -444,7 +492,7 @@ function renderPlay() {
     var sideLabel = document.getElementById("btn-side-label");
 
     if (record && record.sides && record.sides.length > 0) {
-        var side = record.sides[state.currentSideIndex] || record.sides[0];
+        var side = getSideForIndex(record, state.currentSideIndex);
         var track = side.tracks[state.currentTrackIndex] || side.tracks[0];
 
         cover.src = coverImageUrl(record);
@@ -452,7 +500,7 @@ function renderPlay() {
         setMetaText(document.getElementById("play-artist"), record.artist);
         setMetaText(document.getElementById("play-title"), record.title);
         setMetaText(trackEl, track ? track.title : "");
-        sideLabel.textContent = "Side " + side.id;
+        sideLabel.textContent = "Side " + getSideLabel(side);
     }
 }
 
@@ -760,25 +808,15 @@ function connectWebSocket() {
 
         switch (msg.event) {
             case "current_record":
-                state.currentRecordId = msg.data.record_id;
-                state.currentTrackIndex = 0;
-                state.currentSideIndex = 0;
+                activateRecord(msg.data.record_id, { clearStandbyError: false });
                 render();
                 break;
             case "scan":
-                state.currentTrackIndex = 0;
-                state.currentSideIndex = 0;
                 if (msg.data.record_id === null) {
-                    state.standbyError = "nfc";
-                    state.currentRecordId = null;
+                    clearActiveRecord("nfc");
                 } else {
-                    var found = state.records.find(function (r) { return r.id === msg.data.record_id; });
-                    if (found) {
-                        state.currentRecordId = msg.data.record_id;
-                        state.standbyError = null;
-                    } else {
-                        state.standbyError = "not-found";
-                        state.currentRecordId = null;
+                    if (!activateRecord(msg.data.record_id, { showInStandby: true })) {
+                        clearActiveRecord("not-found");
                     }
                 }
                 state.mode = "standby";
@@ -850,17 +888,16 @@ function applyHash() {
 
     state.mode = mode;
     state.linkError = false;
-    state.standbyError = null;
+    clearActiveRecord(mode === "standby" ? "not-found" : null);
 
-    // Restore currentRecordId from fetched data
-    if (state.records.length > 0) {
-        state.currentRecordId = state.records[0].id;
+    if ((mode === "standby" || mode === "play") && state.records.length > 0) {
+        activateRecord(state.records[0].id, { showInStandby: true });
     }
 
     if (isError) {
         switch (mode) {
             case "standby":
-                state.standbyError = "nfc";
+                clearActiveRecord("nfc");
                 break;
             case "link":
                 state.linkError = true;
@@ -878,7 +915,7 @@ function applyHash() {
 
     // Handle standby-not-found hash
     if (mode === "standby" && rest === "not-found") {
-        state.standbyError = "not-found";
+        clearActiveRecord("not-found");
     }
 
     render();

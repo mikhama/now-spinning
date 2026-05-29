@@ -2,9 +2,7 @@
 
 ## Purpose
 UI mode transition logic driven by button presses and WebSocket events.
-
 ## Requirements
-
 ### Requirement: Mode button cycle order
 The mode button SHALL cycle through modes in this fixed order: standby → sync → link → re-link → stylus → standby. Play mode SHALL NOT be reachable via the mode button. Error sub-states (standby-not-found, standby-error, link-error, stylus with no styli) SHALL be treated as their parent mode for cycle purposes.
 
@@ -37,19 +35,23 @@ The mode button SHALL cycle through modes in this fixed order: standby → sync 
 - **THEN** the mode SHALL change to "standby"
 
 ### Requirement: Scan event transitions to standby
-When a `scan` event is received with a valid `record_id`, the UI SHALL transition to standby mode showing that record. When `record_id` is null, the UI SHALL show the NFC error state. When `record_id` refers to a non-existent record, the UI SHALL show the not-found state.
+When a `scan` event is received with a valid `record_id`, the UI SHALL transition to standby mode showing that record. When `record_id` is null, the UI SHALL show the NFC error state. When `record_id` refers to a non-existent record, the UI SHALL show the not-found state. Scan events that load a valid record SHALL reset the visible side to the first side and the visible track index to the first track.
 
 #### Scenario: Scan with valid record_id
 - **WHEN** a `scan` event is received with `{"record_id": "1"}` and record "1" exists
 - **THEN** the mode SHALL change to "standby" with `currentRecordId` set to "1" and no error state
+- **AND** `currentSideIndex` SHALL be `0`
+- **AND** `currentTrackIndex` SHALL be `0`
 
 #### Scenario: Scan with null record_id
 - **WHEN** a `scan` event is received with `{"record_id": null}`
 - **THEN** the mode SHALL change to "standby" with `standbyError` set to "nfc"
+- **AND** `currentRecordId` SHALL be `null`
 
 #### Scenario: Scan with unknown record_id
 - **WHEN** a `scan` event is received with `{"record_id": "999"}` and record "999" does not exist
 - **THEN** the mode SHALL change to "standby" with `standbyError` set to "not-found"
+- **AND** `currentRecordId` SHALL be `null`
 
 ### Requirement: Play/stop status events
 When a `status` event with `status: "play"` is received, the UI SHALL transition to play mode. When `status: "stop"` is received, the UI SHALL transition to standby mode.
@@ -68,3 +70,13 @@ When a `link_error` event is received, the UI SHALL show the link error state in
 #### Scenario: Link error during link mode
 - **WHEN** the mode is "link" and a `link_error` event is received
 - **THEN** `linkError` SHALL be set to true and the UI SHALL render the error display
+
+### Requirement: Initial load defaults to standby not-found before scan
+When the UI initializes without a URL hash, it SHALL start in standby mode with no active record selected and the standby not-found state visible.
+
+#### Scenario: Cold load without hash
+- **WHEN** the app loads at the root URL with no hash and before any runtime event has selected a record
+- **THEN** the mode SHALL be "standby"
+- **AND** `currentRecordId` SHALL be `null`
+- **AND** `standbyError` SHALL be "not-found"
+
