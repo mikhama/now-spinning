@@ -59,6 +59,9 @@ To send events in boardless mode (from another terminal):
 # Scan a record
 curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"1"}}' localhost:5000/events
 
+# Record not found
+curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"999"}}' localhost:5000/events
+
 # NFC reading error
 curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":null}}' localhost:5000/events
 

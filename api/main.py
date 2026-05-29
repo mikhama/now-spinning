@@ -12,6 +12,75 @@ sock = Sock(app)
 # Connected WebSocket clients for event broadcasting
 connected_clients: set = set()
 
+# Runtime event state used to seed newly connected clients without fabricating
+# a default record.
+runtime_state = {
+    "stylus_hours": {"1": 89.6},
+    "temperature_c": 59,
+    "current_record_id": None,
+    "last_scan_data": None,
+    "status": "idle",
+}
+
+
+def update_runtime_state(message):
+    event = message.get("event")
+    data = message.get("data") or {}
+
+    if event == "stylus_hours":
+        stylus_id = data.get("stylus_id")
+        hours = data.get("hours")
+        if stylus_id is not None and hours is not None:
+            runtime_state["stylus_hours"][str(stylus_id)] = hours
+    elif event == "temperature_c":
+        temp_c = data.get("temp_c")
+        if temp_c is not None:
+            runtime_state["temperature_c"] = temp_c
+    elif event == "current_record":
+        runtime_state["current_record_id"] = data.get("record_id")
+        runtime_state["last_scan_data"] = None
+    elif event == "scan":
+        runtime_state["last_scan_data"] = data
+        runtime_state["current_record_id"] = data.get("record_id")
+    elif event == "status":
+        status = data.get("status")
+        if status is not None:
+            runtime_state["status"] = status
+
+
+def build_initial_events():
+    events = []
+
+    for stylus_id, hours in runtime_state["stylus_hours"].items():
+        events.append({"event": "stylus_hours", "data": {"hours": hours, "stylus_id": stylus_id}})
+
+    temperature_c = runtime_state.get("temperature_c")
+    if temperature_c is not None:
+        events.append({"event": "temperature_c", "data": {"temp_c": temperature_c}})
+
+    if runtime_state["last_scan_data"] is not None:
+        events.append({"event": "scan", "data": runtime_state["last_scan_data"]})
+    elif runtime_state["current_record_id"] is not None:
+        events.append({"event": "current_record", "data": {"record_id": runtime_state["current_record_id"]}})
+
+    status = runtime_state.get("status")
+    if status is not None:
+        events.append({"event": "status", "data": {"status": status}})
+
+    return events
+
+
+def broadcast_message(message, *, exclude_client=None):
+    payload = json.dumps(message)
+    update_runtime_state(message)
+    for client in list(connected_clients):
+        if client is exclude_client:
+            continue
+        try:
+            client.send(payload)
+        except Exception:
+            connected_clients.discard(client)
+
 
 @app.route("/")
 def index():
@@ -173,12 +242,7 @@ def post_event():
     data = request.get_json(silent=True)
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
-    msg = json.dumps(data)
-    for client in list(connected_clients):
-        try:
-            client.send(msg)
-        except Exception:
-            connected_clients.discard(client)
+    broadcast_message(data)
     return jsonify({"success": True})
 
 
@@ -190,12 +254,7 @@ def post_event():
 def ws(ws):
     connected_clients.add(ws)
     try:
-        events = [
-            {"event": "stylus_hours", "data": {"hours": 89.6, "stylus_id": "1"}},
-            {"event": "temperature_c", "data": {"temp_c": 59}},
-            {"event": "current_record", "data": {"record_id": "1"}},
-            {"event": "status", "data": {"status": "idle"}},
-        ]
+        events = build_initial_events()
         for event in events:
             ws.send(json.dumps(event))
         while True:
@@ -204,13 +263,7 @@ def ws(ws):
                 break
             try:
                 msg = json.loads(raw)
-                payload = json.dumps(msg)
-                for client in list(connected_clients):
-                    if client is not ws:
-                        try:
-                            client.send(payload)
-                        except Exception:
-                            connected_clients.discard(client)
+                broadcast_message(msg, exclude_client=ws)
             except (json.JSONDecodeError, TypeError):
                 pass
     finally:

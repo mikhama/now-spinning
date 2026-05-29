@@ -62,7 +62,7 @@
 
         <!-- Play mode -->
         <section id="mode-play" class="mode-section">
-            <div class="split-grid">
+            <div class="split-grid" id="play-grid">
                 <div class="cover-col">
                     <img id="play-cover" class="cover-image" alt="Cover">
                 </div>
@@ -90,6 +90,14 @@
                         </span>
                     </div>
                 </div>
+            </div>
+            <div class="split-grid" id="play-not-found-grid" style="display:none">
+                <div class="cover-col">
+                    <div class="cover-placeholder">
+                        <span class="cover-placeholder-text">Record Not Found</span>
+                    </div>
+                </div>
+                <div class="info-col"></div>
             </div>
         </section>
 

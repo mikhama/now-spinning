@@ -54,15 +54,24 @@ When a `scan` event is received with a valid `record_id`, the UI SHALL transitio
 - **AND** `currentRecordId` SHALL be `null`
 
 ### Requirement: Play/stop status events
-When a `status` event with `status: "play"` is received, the UI SHALL transition to play mode. When `status: "stop"` is received, the UI SHALL transition to standby mode.
+When a `status` event with `status: "play"` is received, the UI SHALL transition to play mode without synthesizing a fallback record. When `status: "stop"` is received, the UI SHALL transition to standby mode while preserving the current record or standby error context.
 
-#### Scenario: Status play event
-- **WHEN** a `status` event is received with `{"status": "play"}`
-- **THEN** the mode SHALL change to "play"
+#### Scenario: Status play event with active record
+- **WHEN** a `status` event is received with `{"status": "play"}` and `currentRecordId` points to an existing record
+- **THEN** the mode SHALL change to `"play"`
+- **AND** `currentRecordId` SHALL remain set to that record
 
-#### Scenario: Status stop event
-- **WHEN** a `status` event is received with `{"status": "stop"}`
-- **THEN** the mode SHALL change to "standby"
+#### Scenario: Status play event without active record
+- **WHEN** a `status` event is received with `{"status": "play"}` and no current record is active because the latest scan resolved to record-not-found
+- **THEN** the mode SHALL change to `"play"`
+- **AND** `currentRecordId` SHALL remain `null`
+- **AND** the event handling SHALL NOT assign a default or fallback record
+
+#### Scenario: Status stop event preserves fallback context
+- **WHEN** a `status` event is received with `{"status": "stop"}` after play mode was entered without a valid current record
+- **THEN** the mode SHALL change to `"standby"`
+- **AND** `currentRecordId` SHALL remain `null`
+- **AND** `standbyError` SHALL remain `"not-found"`
 
 ### Requirement: Link error event
 When a `link_error` event is received, the UI SHALL show the link error state in the current link or re-link mode.

@@ -198,7 +198,7 @@ function getActiveActionGroupId() {
         case "standby":
             return "actions-standby";
         case "play":
-            return "actions-play";
+            return getCurrentRecord() ? "actions-play" : null;
         case "link":
             return getUnlinkedRecords().length > 0 ? "actions-link" : "actions-standby";
         case "re-link":
@@ -487,21 +487,39 @@ function renderStandby() {
 
 function renderPlay() {
     var record = getCurrentRecord();
+    var grid = document.getElementById("play-grid");
+    var notFoundGrid = document.getElementById("play-not-found-grid");
     var cover = document.getElementById("play-cover");
+    var artistEl = document.getElementById("play-artist");
+    var titleEl = document.getElementById("play-title");
+    var idEl = document.getElementById("play-id");
     var trackEl = document.getElementById("play-track");
     var sideLabel = document.getElementById("btn-side-label");
 
-    if (record && record.sides && record.sides.length > 0) {
-        var side = getSideForIndex(record, state.currentSideIndex);
-        var track = side.tracks[state.currentTrackIndex] || side.tracks[0];
-
-        cover.src = coverImageUrl(record);
-        document.getElementById("play-id").textContent = String(record.id).padStart(2, "0");
-        setMetaText(document.getElementById("play-artist"), record.artist);
-        setMetaText(document.getElementById("play-title"), record.title);
-        setMetaText(trackEl, track ? track.title : "");
-        sideLabel.textContent = "Side " + getSideLabel(side);
+    if (!record) {
+        grid.style.display = "none";
+        notFoundGrid.style.display = "";
+        cover.src = "";
+        idEl.textContent = "";
+        setMetaText(artistEl, "");
+        setMetaText(titleEl, "");
+        setMetaText(trackEl, "");
+        sideLabel.textContent = "Side A";
+        return;
     }
+
+    grid.style.display = "";
+    notFoundGrid.style.display = "none";
+
+    var side = getSideForIndex(record, state.currentSideIndex);
+    var track = side && side.tracks ? (side.tracks[state.currentTrackIndex] || side.tracks[0]) : null;
+
+    cover.src = coverImageUrl(record);
+    idEl.textContent = String(record.id).padStart(2, "0");
+    setMetaText(artistEl, record.artist);
+    setMetaText(titleEl, record.title);
+    setMetaText(trackEl, track ? track.title : "");
+    sideLabel.textContent = "Side " + getSideLabel(side);
 }
 
 function renderLink() {
