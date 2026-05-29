@@ -57,7 +57,7 @@ To debug all views:
 To send events in boardless mode (from another terminal):
 ```bash
 # Scan a record
-curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"1"}}' localhost:5000/events
+curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"32"}}' localhost:5000/events
 
 # Record not found
 curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"999"}}' localhost:5000/events

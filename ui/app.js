@@ -147,6 +147,26 @@ function getBarColor(hours, capacityMin) {
     return hours < capacityMin ? "--ink-soft" : "--amber-deep";
 }
 
+function normalizeTrackLabelValue(value) {
+    return typeof value === "string" ? value.trim() : "";
+}
+
+function getPlayTrackLabel(record, track) {
+    var trackTitle = normalizeTrackLabelValue(track && track.title);
+    var trackArtist = normalizeTrackLabelValue(track && track.artist);
+    var recordArtist = normalizeTrackLabelValue(record && record.artist);
+
+    if (!trackTitle) {
+        return "";
+    }
+
+    if (!trackArtist || trackArtist === recordArtist) {
+        return trackTitle;
+    }
+
+    return trackTitle + " (" + trackArtist + ")";
+}
+
 // ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
@@ -264,7 +284,7 @@ function getActiveSectionInputs() {
                 recordCover: coverImageUrl(record),
                 sideId: side ? getSideLabel(side) : null,
                 trackIndex: state.currentTrackIndex,
-                trackTitle: track ? track.title : "",
+                trackTitle: getPlayTrackLabel(record, track),
             };
         case "link":
             record = getLinkRecord();
@@ -513,12 +533,13 @@ function renderPlay() {
 
     var side = getSideForIndex(record, state.currentSideIndex);
     var track = side && side.tracks ? (side.tracks[state.currentTrackIndex] || side.tracks[0]) : null;
+    var trackLabel = getPlayTrackLabel(record, track);
 
     cover.src = coverImageUrl(record);
     idEl.textContent = String(record.id).padStart(2, "0");
     setMetaText(artistEl, record.artist);
     setMetaText(titleEl, record.title);
-    setMetaText(trackEl, track ? track.title : "");
+    setMetaText(trackEl, trackLabel);
     sideLabel.textContent = "Side " + getSideLabel(side);
 }
 
