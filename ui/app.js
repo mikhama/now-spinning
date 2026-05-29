@@ -7,6 +7,7 @@ var state = {
     records: [],
     styli: [],
     currentRecordId: null,
+    playbackTime: null,
     currentTrackIndex: 0,
     currentSideIndex: 0,
     linkRecordIndex: 0,
@@ -38,11 +39,11 @@ function nextMode() {
     // Map error sub-states to their parent mode for cycle lookup
     var current = state.mode;
     if (current === "play") {
-        state.mode = "standby";
+        setMode("standby");
     } else {
         var i = MODE_BUTTON_CYCLE.indexOf(current);
         if (i === -1) i = 0; // fallback to standby
-        state.mode = MODE_BUTTON_CYCLE[(i + 1) % MODE_BUTTON_CYCLE.length];
+        setMode(MODE_BUTTON_CYCLE[(i + 1) % MODE_BUTTON_CYCLE.length]);
     }
     state.linkError = false;
     state.standbyError = null;
@@ -73,10 +74,18 @@ function getSideLabel(side) {
 
 function clearActiveRecord(standbyError) {
     state.currentRecordId = null;
+    state.playbackTime = null;
     state.currentTrackIndex = 0;
     state.currentSideIndex = 0;
     state.standbyRecordVisible = false;
     state.standbyError = standbyError || null;
+}
+
+function setMode(nextMode) {
+    state.mode = nextMode;
+    if (nextMode !== "play") {
+        state.playbackTime = null;
+    }
 }
 
 function activateRecord(recordId, options) {
@@ -151,6 +160,10 @@ function normalizeTrackLabelValue(value) {
     return typeof value === "string" ? value.trim() : "";
 }
 
+function getPlaybackTimeValue(value) {
+    return typeof value === "string" && /^\d{2}:\d{2}$/.test(value) ? value : null;
+}
+
 function getPlayTrackLabel(record, track) {
     var trackTitle = normalizeTrackLabelValue(track && track.title);
     var trackArtist = normalizeTrackLabelValue(track && track.artist);
@@ -210,7 +223,12 @@ function getModeLabel() {
         return "Link";
     }
     if (state.mode === "re-link") return "Re-Link";
-    return { standby: "Standby", play: "Play", stylus: "Stylus", sync: "Sync" }[state.mode] || state.mode;
+
+    if (state.mode === "play") {
+        return state.playbackTime ? "Play " + state.playbackTime : "Play";
+    }
+
+    return { standby: "Standby", stylus: "Stylus", sync: "Sync" }[state.mode] || state.mode;
 }
 
 function getActiveActionGroupId() {
@@ -858,7 +876,7 @@ function connectWebSocket() {
                         clearActiveRecord("not-found");
                     }
                 }
-                state.mode = "standby";
+                setMode("standby");
                 render();
                 break;
             case "stylus_hours":
@@ -872,11 +890,17 @@ function connectWebSocket() {
                 break;
             case "status":
                 if (!location.hash) {
-                    if (msg.data.status === "play" && state.mode !== "play") {
-                        state.mode = "play";
-                        render();
+                    if (msg.data.status === "play") {
+                        state.playbackTime = getPlaybackTimeValue(msg.data.time);
+
+                        if (state.mode !== "play") {
+                            setMode("play");
+                            render();
+                        } else {
+                            render({ topBar: true, visibility: false, section: false });
+                        }
                     } else if (msg.data.status === "stop" && state.mode === "play") {
-                        state.mode = "standby";
+                        setMode("standby");
                         render();
                     }
                 }

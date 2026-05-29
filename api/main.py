@@ -20,6 +20,7 @@ runtime_state = {
     "current_record_id": None,
     "last_scan_data": None,
     "status": "idle",
+    "status_time": None,
 }
 
 
@@ -46,6 +47,7 @@ def update_runtime_state(message):
         status = data.get("status")
         if status is not None:
             runtime_state["status"] = status
+            runtime_state["status_time"] = data.get("time") if status == "play" else None
 
 
 def build_initial_events():
@@ -65,7 +67,10 @@ def build_initial_events():
 
     status = runtime_state.get("status")
     if status is not None:
-        events.append({"event": "status", "data": {"status": status}})
+        status_event = {"status": status}
+        if runtime_state.get("status_time") is not None:
+            status_event["time"] = runtime_state["status_time"]
+        events.append({"event": "status", "data": status_event})
 
     return events
 

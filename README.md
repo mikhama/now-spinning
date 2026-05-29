@@ -65,8 +65,8 @@ curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"re
 # NFC reading error
 curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":null}}' localhost:5000/events
 
-# Turntable started spinning
-curl -X POST -H "Content-Type: application/json" -d '{"event":"status","data":{"status":"play"}}' localhost:5000/events
+# Turntable started spinning (boardless Play-mode test)
+curl -X POST -H "Content-Type: application/json" -d '{"event":"status","data":{"status":"play","time":"00:01"}}' localhost:5000/events
 
 # Turntable stopped
 curl -X POST -H "Content-Type: application/json" -d '{"event":"status","data":{"status":"stop"}}' localhost:5000/events
