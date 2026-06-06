@@ -59,21 +59,23 @@ To send events in boardless mode (from another terminal):
 # Scan a record
 curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"32"}}' localhost:5000/events
 
-# Record not found
-curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"999"}}' localhost:5000/events
-
-# NFC reading error
-curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":null}}' localhost:5000/events
-
 # Turntable started spinning (boardless Play-mode test)
 curl -X POST -H "Content-Type: application/json" -d '{"event":"status","data":{"status":"play","time":"00:01"}}' localhost:5000/events
 
 # Turntable stopped
 curl -X POST -H "Content-Type: application/json" -d '{"event":"status","data":{"status":"stop"}}' localhost:5000/events
 
+# Record not found
+curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":"999"}}' localhost:5000/events
+
+# NFC reading error
+curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":null}}' localhost:5000/events
+
 # Link error
 curl -X POST -H "Content-Type: application/json" -d '{"event":"link_error","data":{"record_id":"1"}}' localhost:5000/events
 ```
+
+The `time` field above is for boardless Play-mode UI testing. A `status: "play"` event with `time` means the turntable is spinning; any other status means it is not spinning. This does not change real board event production.
 
 ## Utils
 

@@ -1,57 +1,4 @@
-# mode-state-machine Specification
-
-## Purpose
-UI mode transition logic driven by button presses and WebSocket events.
-## Requirements
-### Requirement: Mode button cycle order
-The mode button SHALL cycle through modes in this fixed order: standby → sync → link → re-link → stylus → standby. Play mode SHALL NOT be reachable via the mode button. Error sub-states (standby-not-found, standby-error, link-error, stylus with no styli) SHALL be treated as their parent mode for cycle purposes.
-
-#### Scenario: Mode button from standby
-- **WHEN** the current mode is "standby" and the mode button is pressed
-- **THEN** the mode SHALL change to "sync"
-
-#### Scenario: Mode button from sync
-- **WHEN** the current mode is "sync" and the mode button is pressed
-- **THEN** the mode SHALL change to "link"
-
-#### Scenario: Mode button from link
-- **WHEN** the current mode is "link" and the mode button is pressed
-- **THEN** the mode SHALL change to "re-link"
-
-#### Scenario: Mode button from re-link
-- **WHEN** the current mode is "re-link" and the mode button is pressed
-- **THEN** the mode SHALL change to "stylus"
-
-#### Scenario: Mode button from stylus
-- **WHEN** the current mode is "stylus" and the mode button is pressed
-- **THEN** the mode SHALL change to "standby"
-
-#### Scenario: Mode button from standby-not-found
-- **WHEN** the current mode is "standby" with standbyError "not-found" and the mode button is pressed
-- **THEN** the mode SHALL change to "sync"
-
-#### Scenario: Mode button from play mode
-- **WHEN** the current mode is "play" and the mode button is pressed
-- **THEN** the mode SHALL change to "standby"
-
-### Requirement: Scan event transitions to standby
-When a `scan` event is received with a valid `record_id`, the UI SHALL transition to standby mode showing that record. When `record_id` is null, the UI SHALL show the NFC error state. When `record_id` refers to a non-existent record, the UI SHALL show the not-found state. Scan events that load a valid record SHALL reset the visible side to the first side and the visible track index to the first track.
-
-#### Scenario: Scan with valid record_id
-- **WHEN** a `scan` event is received with `{"record_id": "1"}` and record "1" exists
-- **THEN** the mode SHALL change to "standby" with `currentRecordId` set to "1" and no error state
-- **AND** `currentSideIndex` SHALL be `0`
-- **AND** `currentTrackIndex` SHALL be `0`
-
-#### Scenario: Scan with null record_id
-- **WHEN** a `scan` event is received with `{"record_id": null}`
-- **THEN** the mode SHALL change to "standby" with `standbyError` set to "nfc"
-- **AND** `currentRecordId` SHALL be `null`
-
-#### Scenario: Scan with unknown record_id
-- **WHEN** a `scan` event is received with `{"record_id": "999"}` and record "999" does not exist
-- **THEN** the mode SHALL change to "standby" with `standbyError` set to "not-found"
-- **AND** `currentRecordId` SHALL be `null`
+## MODIFIED Requirements
 
 ### Requirement: Play/stop status events
 When a `status` event with `status: "play"` is received, the UI SHALL transition to play mode without synthesizing a fallback record. If that play event includes a `time` field formatted as `MM:SS`, the UI SHALL store that exact value as the current playback time for Play mode, parse it as the latest boardless elapsed playback time, and treat the turntable as spinning. The UI SHALL NOT store a separate `spinning` payload field. When `status: "stop"` is received, the UI SHALL transition to standby mode while preserving the current record or standby error context and clearing stored Play-only timing state. If playback stops at or after 20 seconds before the selected side end, including any overrun beyond the estimated side length, the selected side SHALL advance to the next side before Play-only timing state is cleared.
@@ -72,7 +19,7 @@ The selected song SHALL reset to the first song on the selected side when playba
 - **AND** the event handling SHALL NOT assign a default or fallback record
 
 #### Scenario: Status play event derives spinning state
-- **WHEN** a `status` event is received with `{"status": "play", "time":"03:30"}`
+- **WHEN** a `status` event is received with `{"status": "play", "time": "03:30"}`
 - **THEN** the mode SHALL change to `"play"`
 - **AND** the turntable SHALL be treated as spinning
 - **AND** no separate `spinning` payload value SHALL be stored
@@ -99,6 +46,8 @@ The selected song SHALL reset to the first song on the selected side when playba
 - **AND** the selected side SHALL advance to the next side with wraparound
 - **AND** the selected song SHALL reset to the first song on the advanced side
 - **AND** Play-only timing state SHALL be cleared
+
+## ADDED Requirements
 
 ### Requirement: Boardless playback correction state
 During boardless Play mode, the UI mode state SHALL maintain enough timing state to combine server elapsed time with user side and song corrections. The effective playback position SHALL be recalculated whenever a boardless play status event, Side button click, Prev song click, or Next song click changes playback selection.
@@ -130,19 +79,3 @@ During boardless Play mode, the UI mode state SHALL maintain enough timing state
 - **THEN** the selected side SHALL remain side "B" after Play mode starts
 - **AND** the manual playback correction offset SHALL be set from side "B"
 - **AND** the selected song SHALL be the first song unless a song was manually selected before Play mode starts
-
-### Requirement: Link error event
-When a `link_error` event is received, the UI SHALL show the link error state in the current link or re-link mode.
-
-#### Scenario: Link error during link mode
-- **WHEN** the mode is "link" and a `link_error` event is received
-- **THEN** `linkError` SHALL be set to true and the UI SHALL render the error display
-
-### Requirement: Initial load defaults to standby not-found before scan
-When the UI initializes without a URL hash, it SHALL start in standby mode with no active record selected and the standby not-found state visible.
-
-#### Scenario: Cold load without hash
-- **WHEN** the app loads at the root URL with no hash and before any runtime event has selected a record
-- **THEN** the mode SHALL be "standby"
-- **AND** `currentRecordId` SHALL be `null`
-- **AND** `standbyError` SHALL be "not-found"

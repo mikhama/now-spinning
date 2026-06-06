@@ -8,6 +8,8 @@ var state = {
     styli: [],
     currentRecordId: null,
     playbackTime: null,
+    boardlessElapsedSeconds: null,
+    manualPlaybackOffsetSeconds: 0,
     currentTrackIndex: 0,
     currentSideIndex: 0,
     linkRecordIndex: 0,
@@ -69,12 +71,38 @@ function getSideForIndex(record, sideIndex) {
 }
 
 function getSideLabel(side) {
-    return side && side.id ? side.id : "A";
+    if (!side) return "A";
+    return side.id || side.side_label || "A";
+}
+
+function getCurrentSideButtonLabel(record) {
+    var side = getSideForIndex(record, state.currentSideIndex);
+    return "Side " + getSideLabel(side);
+}
+
+function updateCurrentSideButtonLabel() {
+    var record = getCurrentRecord();
+    var label = getCurrentSideButtonLabel(record);
+    var standbyButton;
+    var playButton;
+
+    if (typeof document === "undefined") return;
+
+    standbyButton = document.getElementById("btn-side-standby");
+    playButton = document.getElementById("btn-side-label");
+
+    if (standbyButton) {
+        standbyButton.textContent = label;
+    }
+    if (playButton) {
+        playButton.textContent = label;
+    }
 }
 
 function clearActiveRecord(standbyError) {
     state.currentRecordId = null;
     state.playbackTime = null;
+    resetBoardlessPlaybackTiming();
     state.currentTrackIndex = 0;
     state.currentSideIndex = 0;
     state.standbyRecordVisible = false;
@@ -85,6 +113,7 @@ function setMode(nextMode) {
     state.mode = nextMode;
     if (nextMode !== "play") {
         state.playbackTime = null;
+        resetBoardlessPlaybackTiming();
     }
 }
 
@@ -103,6 +132,7 @@ function activateRecord(recordId, options) {
     state.currentRecordId = record.id;
     state.currentTrackIndex = 0;
     state.currentSideIndex = 0;
+    resetBoardlessPlaybackTiming();
 
     if (scope.showInStandby !== undefined) {
         state.standbyRecordVisible = scope.showInStandby;
@@ -162,6 +192,219 @@ function normalizeTrackLabelValue(value) {
 
 function getPlaybackTimeValue(value) {
     return typeof value === "string" && /^\d{2}:\d{2}$/.test(value) ? value : null;
+}
+
+function parseDurationSeconds(value) {
+    var match;
+
+    if (typeof value !== "string") return 0;
+
+    match = value.match(/^(\d+):(\d{2})$/);
+    if (!match) return 0;
+
+    return (parseInt(match[1], 10) * 60) + parseInt(match[2], 10);
+}
+
+function getTrackDurationValue(track) {
+    return track ? (track.duration || track.time) : null;
+}
+
+function getSideDurationSeconds(side) {
+    var tracks = side && side.tracks ? side.tracks : [];
+    var total = 0;
+
+    for (var i = 0; i < tracks.length; i++) {
+        total += parseDurationSeconds(getTrackDurationValue(tracks[i]));
+    }
+
+    return total;
+}
+
+function getSideStartSeconds(record, sideIndex) {
+    var sides = record && record.sides ? record.sides : [];
+    var clampedIndex = clampSideIndex(record, sideIndex);
+    var total = 0;
+
+    for (var i = 0; i < clampedIndex; i++) {
+        total += getSideDurationSeconds(sides[i]);
+    }
+
+    return total;
+}
+
+function getTrackStartSeconds(record, sideIndex, trackIndex) {
+    var side = getSideForIndex(record, sideIndex);
+    var tracks = side && side.tracks ? side.tracks : [];
+    var clampedTrackIndex = clampTrackIndex(record, sideIndex, trackIndex);
+    var total = getSideStartSeconds(record, sideIndex);
+
+    for (var i = 0; i < clampedTrackIndex; i++) {
+        total += parseDurationSeconds(getTrackDurationValue(tracks[i]));
+    }
+
+    return total;
+}
+
+function getTotalRecordDurationSeconds(record) {
+    var sides = record && record.sides ? record.sides : [];
+    var total = 0;
+
+    for (var i = 0; i < sides.length; i++) {
+        total += getSideDurationSeconds(sides[i]);
+    }
+
+    return total;
+}
+
+function clampSideIndex(record, sideIndex) {
+    var sides = record && record.sides ? record.sides : [];
+    var index = Number.isFinite(sideIndex) ? sideIndex : 0;
+
+    if (sides.length === 0) return 0;
+    return Math.min(Math.max(index, 0), sides.length - 1);
+}
+
+function wrapSideIndex(record, sideIndex) {
+    var sides = record && record.sides ? record.sides : [];
+
+    if (sides.length === 0) return 0;
+    return ((sideIndex % sides.length) + sides.length) % sides.length;
+}
+
+function clampTrackIndex(record, sideIndex, trackIndex) {
+    var side = getSideForIndex(record, sideIndex);
+    var tracks = side && side.tracks ? side.tracks : [];
+    var index = Number.isFinite(trackIndex) ? trackIndex : 0;
+
+    if (tracks.length === 0) return 0;
+    return Math.min(Math.max(index, 0), tracks.length - 1);
+}
+
+function resolvePlaybackPosition(record, effectiveSeconds) {
+    var sides = record && record.sides ? record.sides : [];
+    var elapsed = Math.max(effectiveSeconds || 0, 0);
+    var sideStart = 0;
+    var sideIndex;
+    var trackIndex;
+    var side;
+    var tracks;
+    var sideDuration;
+    var trackStart;
+    var trackDuration;
+
+    if (sides.length === 0) {
+        return { sideIndex: 0, trackIndex: 0 };
+    }
+
+    for (sideIndex = 0; sideIndex < sides.length; sideIndex++) {
+        side = sides[sideIndex];
+        sideDuration = getSideDurationSeconds(side);
+        if (elapsed < sideStart + sideDuration || sideIndex === sides.length - 1) {
+            tracks = side && side.tracks ? side.tracks : [];
+            trackStart = sideStart;
+            if (tracks.length === 0) {
+                return { sideIndex: sideIndex, trackIndex: 0 };
+            }
+            for (trackIndex = 0; trackIndex < tracks.length; trackIndex++) {
+                trackDuration = parseDurationSeconds(getTrackDurationValue(tracks[trackIndex]));
+                if (elapsed < trackStart + trackDuration || trackIndex === tracks.length - 1) {
+                    return { sideIndex: sideIndex, trackIndex: trackIndex };
+                }
+                trackStart += trackDuration;
+            }
+        }
+        sideStart += sideDuration;
+    }
+
+    return { sideIndex: sides.length - 1, trackIndex: 0 };
+}
+
+function getEffectivePlaybackSeconds() {
+    if (state.boardlessElapsedSeconds === null) return null;
+    return Math.max(state.boardlessElapsedSeconds + state.manualPlaybackOffsetSeconds, 0);
+}
+
+function resetBoardlessPlaybackTiming() {
+    state.boardlessElapsedSeconds = null;
+    state.manualPlaybackOffsetSeconds = 0;
+}
+
+function setManualPlaybackOffset(targetEffectiveSeconds) {
+    var elapsed = state.boardlessElapsedSeconds === null ? 0 : state.boardlessElapsedSeconds;
+    state.manualPlaybackOffsetSeconds = Math.max(targetEffectiveSeconds, 0) - elapsed;
+}
+
+function preserveCurrentSelectionForPlayStart() {
+    var record = getCurrentRecord();
+
+    if (!record || !record.sides || record.sides.length === 0) return;
+
+    state.currentSideIndex = clampSideIndex(record, state.currentSideIndex);
+    state.currentTrackIndex = clampTrackIndex(record, state.currentSideIndex, state.currentTrackIndex);
+    state.manualPlaybackOffsetSeconds = getTrackStartSeconds(record, state.currentSideIndex, state.currentTrackIndex);
+}
+
+function advanceSideIfStoppedNearCurrentSideEnd() {
+    var record = getCurrentRecord();
+    var effectiveSeconds = getEffectivePlaybackSeconds();
+    var currentSideIndex;
+    var side;
+    var sideEnd;
+
+    if (!record || !record.sides || record.sides.length === 0 || effectiveSeconds === null) return false;
+
+    currentSideIndex = clampSideIndex(record, state.currentSideIndex);
+    side = getSideForIndex(record, currentSideIndex);
+    sideEnd = getSideStartSeconds(record, currentSideIndex) + getSideDurationSeconds(side);
+
+    if (effectiveSeconds < sideEnd - 20) return false;
+
+    state.currentSideIndex = wrapSideIndex(record, currentSideIndex + 1);
+    state.currentTrackIndex = 0;
+    updateCurrentSideButtonLabel();
+    return true;
+}
+
+function refreshBoardlessPlaybackSelection() {
+    var record = getCurrentRecord();
+    var effectiveSeconds = getEffectivePlaybackSeconds();
+    var side;
+    var sideEnd;
+    var sideStart;
+    var trackIndex;
+    var trackStart;
+    var trackDuration;
+    var currentSideIndex;
+
+    if (!record || !record.sides || record.sides.length === 0 || effectiveSeconds === null) return;
+
+    currentSideIndex = clampSideIndex(record, state.currentSideIndex);
+    side = getSideForIndex(record, currentSideIndex);
+    sideStart = getSideStartSeconds(record, currentSideIndex);
+    sideEnd = sideStart + getSideDurationSeconds(side);
+
+    state.currentSideIndex = currentSideIndex;
+    if (!side || !side.tracks || side.tracks.length === 0) {
+        state.currentTrackIndex = 0;
+        return;
+    }
+
+    if (effectiveSeconds <= sideStart) {
+        state.currentTrackIndex = 0;
+        return;
+    }
+
+    trackStart = sideStart;
+    for (trackIndex = 0; trackIndex < side.tracks.length; trackIndex++) {
+        trackDuration = parseDurationSeconds(getTrackDurationValue(side.tracks[trackIndex]));
+        if (effectiveSeconds < trackStart + trackDuration || trackIndex === side.tracks.length - 1) {
+            state.currentTrackIndex = trackIndex;
+            return;
+        }
+        trackStart += trackDuration;
+    }
+
+    state.currentTrackIndex = clampTrackIndex(record, currentSideIndex, side.tracks.length - 1);
 }
 
 function getPlayTrackLabel(record, track) {
@@ -515,8 +758,7 @@ function renderStandby() {
         setMetaText(document.getElementById("standby-artist"), record.artist);
         setMetaText(document.getElementById("standby-title"), record.title);
         if (record.sides && record.sides.length > 0) {
-            var side = getSideForIndex(record, state.currentSideIndex);
-            sideBtn.textContent = "Side " + getSideLabel(side);
+            sideBtn.textContent = getCurrentSideButtonLabel(record);
         }
     } else {
         notFoundGrid.style.display = "";
@@ -558,7 +800,7 @@ function renderPlay() {
     setMetaText(artistEl, record.artist);
     setMetaText(titleEl, record.title);
     setMetaText(trackEl, trackLabel);
-    sideLabel.textContent = "Side " + getSideLabel(side);
+    sideLabel.textContent = getCurrentSideButtonLabel(record);
 }
 
 function renderLink() {
@@ -827,7 +1069,11 @@ function prevSong() {
         state.currentSideIndex = (state.currentSideIndex - 1 + record.sides.length) % record.sides.length;
         state.currentTrackIndex = record.sides[state.currentSideIndex].tracks.length - 1;
     }
-    render();
+    if (state.mode === "play") {
+        setManualPlaybackOffset(getTrackStartSeconds(record, state.currentSideIndex, state.currentTrackIndex));
+        updateCurrentSideButtonLabel();
+    }
+    render({ force: state.mode === "play" });
 }
 
 function nextSong() {
@@ -840,16 +1086,36 @@ function nextSong() {
         state.currentSideIndex = (state.currentSideIndex + 1) % record.sides.length;
         state.currentTrackIndex = 0;
     }
-    render();
+    if (state.mode === "play") {
+        setManualPlaybackOffset(getTrackStartSeconds(record, state.currentSideIndex, state.currentTrackIndex));
+        updateCurrentSideButtonLabel();
+    }
+    render({ force: state.mode === "play" });
 }
 
 function switchSide() {
     var record = getCurrentRecord();
+    var selectedTrackIndex = state.currentTrackIndex;
+    var previousSideIndex = state.currentSideIndex;
+    var previousEffectiveSeconds = getEffectivePlaybackSeconds();
+    var previousSideEnd;
     if (!record || !record.sides || record.sides.length === 0) return;
 
     state.currentSideIndex = (state.currentSideIndex + 1) % record.sides.length;
-    state.currentTrackIndex = 0;
-    render();
+    if (state.mode === "play") {
+        previousSideEnd = getSideStartSeconds(record, previousSideIndex) + getSideDurationSeconds(getSideForIndex(record, previousSideIndex));
+        if (previousEffectiveSeconds !== null && previousEffectiveSeconds >= previousSideEnd) {
+            state.manualPlaybackOffsetSeconds = getSideStartSeconds(record, state.currentSideIndex);
+            refreshBoardlessPlaybackSelection();
+        } else {
+            state.currentTrackIndex = clampTrackIndex(record, state.currentSideIndex, selectedTrackIndex);
+            setManualPlaybackOffset(getTrackStartSeconds(record, state.currentSideIndex, state.currentTrackIndex));
+        }
+        updateCurrentSideButtonLabel();
+    } else {
+        state.currentTrackIndex = 0;
+    }
+    render({ force: state.mode === "play" });
 }
 
 // ---------------------------------------------------------------------------
@@ -891,15 +1157,19 @@ function connectWebSocket() {
             case "status":
                 if (!location.hash) {
                     if (msg.data.status === "play") {
+                        var wasPlaying = state.mode === "play";
                         state.playbackTime = getPlaybackTimeValue(msg.data.time);
+                        state.boardlessElapsedSeconds = state.playbackTime ? parseDurationSeconds(state.playbackTime) : null;
 
-                        if (state.mode !== "play") {
+                        if (!wasPlaying) {
                             setMode("play");
-                            render();
-                        } else {
-                            render({ topBar: true, visibility: false, section: false });
+                            preserveCurrentSelectionForPlayStart();
                         }
+                        refreshBoardlessPlaybackSelection();
+                        render();
                     } else if (msg.data.status === "stop" && state.mode === "play") {
+                        advanceSideIfStoppedNearCurrentSideEnd();
+                        state.currentTrackIndex = 0;
                         setMode("standby");
                         render();
                     }
