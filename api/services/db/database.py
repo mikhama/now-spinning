@@ -105,3 +105,13 @@ def get_all_records():
         return [dict(row) for row in rows]
     finally:
         conn.close()
+
+
+def mark_record_linked(record_id):
+    conn = _get_connection()
+    try:
+        cursor = conn.execute("UPDATE record SET linked = 1 WHERE id = ?", (str(record_id),))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()

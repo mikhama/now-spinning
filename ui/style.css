@@ -385,6 +385,21 @@ body::before {
     width: fit-content;
 }
 
+.link-pending-dot {
+    display: none;
+    width: fit-content;
+    margin-top: 0.5rem;
+    color: var(--amber-deep);
+    font-family: 'DM Mono', monospace;
+    font-size: 1.1rem;
+    line-height: 1;
+}
+
+.link-pending-dot::before {
+    content: '●';
+    animation: blink 1s step-start infinite;
+}
+
 /* === Stylus Mode === */
 #mode-stylus,
 #mode-sync {

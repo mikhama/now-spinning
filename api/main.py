@@ -127,6 +127,11 @@ def get_record(id):
 
 @app.post("/records/<id>/link")
 def link_record(id):
+    from api.services.db.database import init_db, mark_record_linked
+
+    init_db()
+    if not mark_record_linked(id):
+        return jsonify({"error": "Not found"}), 404
     return jsonify({"success": True})
 
 
@@ -247,6 +252,21 @@ def post_event():
     data = request.get_json(silent=True)
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
+
+    event = data.get("event")
+    event_data = data.get("data") or {}
+
+    if event == "link_success":
+        record_id = event_data.get("record_id")
+        if not record_id:
+            return jsonify({"error": "Missing record_id"}), 400
+
+        from api.services.db.database import init_db, mark_record_linked
+
+        init_db()
+        if not mark_record_linked(record_id):
+            return jsonify({"error": "Not found"}), 404
+
     broadcast_message(data)
     return jsonify({"success": True})
 

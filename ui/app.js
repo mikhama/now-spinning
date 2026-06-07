@@ -18,6 +18,9 @@ var state = {
     stylusHours: {},
     temperature: null,
     linkError: false,
+    pendingLinkRecordId: null,
+    pendingLinkMode: null,
+    retainedLinkRecordId: null,
     standbyError: "not-found", // null | "nfc" | "not-found"
     standbyRecordVisible: false,
 };
@@ -50,6 +53,11 @@ function nextMode() {
     state.linkError = false;
     state.standbyError = null;
     render();
+}
+
+function clearPendingLink() {
+    state.pendingLinkRecordId = null;
+    state.pendingLinkMode = null;
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +118,10 @@ function clearActiveRecord(standbyError) {
 }
 
 function setMode(nextMode) {
+    if (state.mode !== nextMode) {
+        clearPendingLink();
+        state.retainedLinkRecordId = null;
+    }
     state.mode = nextMode;
     if (nextMode !== "play") {
         state.playbackTime = null;
@@ -146,6 +158,14 @@ function activateRecord(recordId, options) {
 
 function getLinkRecord() {
     var unlinked = getUnlinkedRecords();
+    var retained;
+    if (state.retainedLinkRecordId) {
+        retained = state.records.find(function (r) {
+            return r.id === state.retainedLinkRecordId;
+        }) || null;
+        if (retained) return retained;
+        state.retainedLinkRecordId = null;
+    }
     if (unlinked.length === 0) return null;
     return unlinked[state.linkRecordIndex % unlinked.length] || null;
 }
@@ -159,8 +179,17 @@ function getUnlinkedRecords() {
 }
 
 function getReLinkRecord() {
-    if (state.records.length === 0) return null;
-    return state.records[state.reLinkRecordIndex] || null;
+    var linked = getLinkedRecords();
+    if (linked.length === 0) return null;
+    return linked[state.reLinkRecordIndex % linked.length] || null;
+}
+
+function isPendingLinkFor(record, mode) {
+    return Boolean(
+        record &&
+        state.pendingLinkRecordId === record.id &&
+        state.pendingLinkMode === mode
+    );
 }
 
 function getCurrentStylus() {
@@ -481,9 +510,9 @@ function getActiveActionGroupId() {
         case "play":
             return getCurrentRecord() ? "actions-play" : null;
         case "link":
-            return getUnlinkedRecords().length > 0 ? "actions-link" : "actions-standby";
+            return getLinkRecord() ? "actions-link" : "actions-standby";
         case "re-link":
-            return state.records.length > 0 ? "actions-re-link" : "actions-standby";
+            return getLinkedRecords().length > 0 ? "actions-re-link" : "actions-standby";
         case "stylus":
             return state.styli.length > 0 ? "actions-stylus" : "actions-standby";
         case "sync":
@@ -553,6 +582,9 @@ function getActiveSectionInputs() {
                 mode: state.mode,
                 linkError: state.linkError,
                 unlinkedCount: getUnlinkedRecords().length,
+                retainedLinkRecordId: state.retainedLinkRecordId,
+                pendingLinkRecordId: state.pendingLinkRecordId,
+                pendingLinkMode: state.pendingLinkMode,
                 recordId: record ? record.id : null,
                 recordArtist: record ? record.artist : "",
                 recordTitle: record ? record.title : "",
@@ -564,7 +596,9 @@ function getActiveSectionInputs() {
             return {
                 mode: state.mode,
                 linkError: state.linkError,
-                recordCount: state.records.length,
+                linkedCount: getLinkedRecords().length,
+                pendingLinkRecordId: state.pendingLinkRecordId,
+                pendingLinkMode: state.pendingLinkMode,
                 recordId: record ? record.id : null,
                 recordArtist: record ? record.artist : "",
                 recordTitle: record ? record.title : "",
@@ -812,11 +846,13 @@ function renderLink() {
     var title = document.getElementById("link-title");
     var idEl = document.getElementById("link-id");
     var statusEl = document.getElementById("link-status");
+    var pendingEl = document.getElementById("link-pending");
     var errorEl = document.getElementById("link-error");
 
     if (!record) {
         grid.style.display = "none";
         emptyGrid.style.display = "";
+        pendingEl.style.display = "none";
         return;
     }
 
@@ -830,24 +866,31 @@ function renderLink() {
 
     if (state.linkError) {
         statusEl.style.display = "none";
+        pendingEl.style.display = "none";
         errorEl.style.display = "";
     } else {
         statusEl.textContent = record.linked ? "Linked" : "Not Linked";
         statusEl.style.display = "";
+        pendingEl.style.display = isPendingLinkFor(record, "link") ? "inline-block" : "none";
         errorEl.style.display = "none";
     }
 }
 
 function renderReLink() {
     var record = getReLinkRecord();
+    var grid = document.getElementById("re-link-grid");
+    var emptyGrid = document.getElementById("re-link-empty-grid");
     var cover = document.getElementById("re-link-cover");
     var artist = document.getElementById("re-link-artist");
     var title = document.getElementById("re-link-title");
     var idEl = document.getElementById("re-link-id");
     var statusEl = document.getElementById("re-link-status");
+    var pendingEl = document.getElementById("re-link-pending");
     var errorEl = document.getElementById("re-link-error");
 
     if (record) {
+        grid.style.display = "";
+        emptyGrid.style.display = "none";
         cover.src = coverImageUrl(record);
         idEl.textContent = String(record.id).padStart(2, "0");
         setMetaText(artist, record.artist);
@@ -855,14 +898,19 @@ function renderReLink() {
 
         if (state.linkError) {
             statusEl.style.display = "none";
+            pendingEl.style.display = "none";
             errorEl.style.display = "";
         } else {
             statusEl.textContent = "Linked";
             statusEl.style.display = "";
+            pendingEl.style.display = isPendingLinkFor(record, "re-link") ? "inline-block" : "none";
             errorEl.style.display = "none";
         }
     } else {
+        grid.style.display = "none";
+        emptyGrid.style.display = "";
         statusEl.style.display = "none";
+        pendingEl.style.display = "none";
         errorEl.style.display = "none";
     }
 }
@@ -981,20 +1029,20 @@ function linkRecord() {
     var record = getLinkRecord();
     if (!record) return;
 
-    fetch("/records/" + record.id + "/link", { method: "POST" })
-        .then(function (res) {
-            if (res.ok) {
-                record.linked = true;
-                state.linkError = false;
-            } else {
-                state.linkError = true;
-            }
-            render();
-        })
-        .catch(function () {
-            state.linkError = true;
-            render();
-        });
+    state.pendingLinkRecordId = record.id;
+    state.pendingLinkMode = "link";
+    state.linkError = false;
+    render();
+}
+
+function reLinkRecord() {
+    var record = getReLinkRecord();
+    if (!record) return;
+
+    state.pendingLinkRecordId = record.id;
+    state.pendingLinkMode = "re-link";
+    state.linkError = false;
+    render();
 }
 
 function resetStylus() {
@@ -1019,6 +1067,7 @@ function resetStylus() {
 // ---------------------------------------------------------------------------
 
 function prevRecord() {
+    state.retainedLinkRecordId = null;
     var unlinked = getUnlinkedRecords();
     if (unlinked.length === 0) return;
     state.linkRecordIndex = (state.linkRecordIndex - 1 + unlinked.length) % unlinked.length;
@@ -1027,6 +1076,7 @@ function prevRecord() {
 }
 
 function nextRecord() {
+    state.retainedLinkRecordId = null;
     var unlinked = getUnlinkedRecords();
     if (unlinked.length === 0) return;
     state.linkRecordIndex = (state.linkRecordIndex + 1) % unlinked.length;
@@ -1035,15 +1085,17 @@ function nextRecord() {
 }
 
 function prevReLinkRecord() {
-    if (state.records.length === 0) return;
-    state.reLinkRecordIndex = (state.reLinkRecordIndex - 1 + state.records.length) % state.records.length;
+    var linked = getLinkedRecords();
+    if (linked.length === 0) return;
+    state.reLinkRecordIndex = (state.reLinkRecordIndex - 1 + linked.length) % linked.length;
     state.linkError = false;
     render();
 }
 
 function nextReLinkRecord() {
-    if (state.records.length === 0) return;
-    state.reLinkRecordIndex = (state.reLinkRecordIndex + 1) % state.records.length;
+    var linked = getLinkedRecords();
+    if (linked.length === 0) return;
+    state.reLinkRecordIndex = (state.reLinkRecordIndex + 1) % linked.length;
     state.linkError = false;
     render();
 }
@@ -1128,17 +1180,18 @@ function connectWebSocket() {
 
     ws.onmessage = function (event) {
         var msg = JSON.parse(event.data);
+        var msgData = msg.data || {};
 
         switch (msg.event) {
             case "current_record":
-                activateRecord(msg.data.record_id, { clearStandbyError: false });
+                activateRecord(msgData.record_id, { clearStandbyError: false });
                 render();
                 break;
             case "scan":
-                if (msg.data.record_id === null) {
+                if (msgData.record_id === null) {
                     clearActiveRecord("nfc");
                 } else {
-                    if (!activateRecord(msg.data.record_id, { showInStandby: true })) {
+                    if (!activateRecord(msgData.record_id, { showInStandby: true })) {
                         clearActiveRecord("not-found");
                     }
                 }
@@ -1147,18 +1200,18 @@ function connectWebSocket() {
                 break;
             case "stylus_hours":
                 var currentStylus = getCurrentStylus();
-                state.stylusHours[msg.data.stylus_id] = msg.data.hours;
+                state.stylusHours[msgData.stylus_id] = msgData.hours;
                 render({
                     topBar: true,
                     visibility: false,
-                    section: state.mode === "stylus" && currentStylus && currentStylus.id === msg.data.stylus_id,
+                    section: state.mode === "stylus" && currentStylus && currentStylus.id === msgData.stylus_id,
                 });
                 break;
             case "status":
                 if (!location.hash) {
-                    if (msg.data.status === "play") {
+                    if (msgData.status === "play") {
                         var wasPlaying = state.mode === "play";
-                        state.playbackTime = getPlaybackTimeValue(msg.data.time);
+                        state.playbackTime = getPlaybackTimeValue(msgData.time);
                         state.boardlessElapsedSeconds = state.playbackTime ? parseDurationSeconds(state.playbackTime) : null;
 
                         if (!wasPlaying) {
@@ -1167,7 +1220,7 @@ function connectWebSocket() {
                         }
                         refreshBoardlessPlaybackSelection();
                         render();
-                    } else if (msg.data.status === "stop" && state.mode === "play") {
+                    } else if (msgData.status === "stop" && state.mode === "play") {
                         advanceSideIfStoppedNearCurrentSideEnd();
                         state.currentTrackIndex = 0;
                         setMode("standby");
@@ -1176,11 +1229,30 @@ function connectWebSocket() {
                 }
                 break;
             case "temperature_c":
-                state.temperature = msg.data.temp_c;
+                state.temperature = msgData.temp_c;
                 render({ topBar: true, visibility: false, section: false });
                 break;
+            case "link_success":
+                var visibleLinkRecord = state.mode === "link" ? getLinkRecord() : null;
+                state.records.forEach(function (record) {
+                    if (record.id === msgData.record_id) {
+                        record.linked = true;
+                    }
+                });
+                if (state.pendingLinkRecordId === msgData.record_id) {
+                    clearPendingLink();
+                }
+                if (visibleLinkRecord && visibleLinkRecord.id === msgData.record_id) {
+                    state.retainedLinkRecordId = msgData.record_id;
+                }
+                state.linkError = false;
+                render();
+                break;
             case "link_error":
-                state.linkError = true;
+                clearPendingLink();
+                if (state.mode === "link" || state.mode === "re-link") {
+                    state.linkError = true;
+                }
                 render();
                 break;
         }
@@ -1219,8 +1291,9 @@ function applyHash() {
 
     if (MODES.indexOf(mode) === -1) return false;
 
-    state.mode = mode;
+    setMode(mode);
     state.linkError = false;
+    state.retainedLinkRecordId = null;
     clearActiveRecord(mode === "standby" ? "not-found" : null);
 
     if ((mode === "standby" || mode === "play") && state.records.length > 0) {
@@ -1239,11 +1312,6 @@ function applyHash() {
                 state.styli = [];
                 break;
         }
-    }
-
-    // For re-link mode, mark all records as linked for demo
-    if (mode === "re-link") {
-        state.records.forEach(function (r) { r.linked = true; });
     }
 
     // Handle standby-not-found hash
@@ -1299,9 +1367,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("btn-prev-record").addEventListener("click", prevRecord);
     document.getElementById("btn-next-record").addEventListener("click", nextRecord);
+    document.getElementById("btn-link").addEventListener("click", linkRecord);
 
     document.getElementById("btn-prev-re-link").addEventListener("click", prevReLinkRecord);
     document.getElementById("btn-next-re-link").addEventListener("click", nextReLinkRecord);
+    document.getElementById("btn-re-link").addEventListener("click", reLinkRecord);
 
     document.getElementById("btn-prev-stylus").addEventListener("click", prevStylus);
     document.getElementById("btn-next-stylus").addEventListener("click", nextStylus);

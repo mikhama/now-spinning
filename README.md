@@ -71,6 +71,9 @@ curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"re
 # NFC reading error
 curl -X POST -H "Content-Type: application/json" -d '{"event":"scan","data":{"record_id":null}}' localhost:5000/events
 
+# Link success
+curl -X POST -H "Content-Type: application/json" -d '{"event":"link_success","data":{"record_id":"1"}}' localhost:5000/events
+
 # Link error
 curl -X POST -H "Content-Type: application/json" -d '{"event":"link_error","data":{"record_id":"1"}}' localhost:5000/events
 ```
@@ -98,3 +101,8 @@ To debug PN532 module:
 ```bash
 python -m exp.nfc.nfc_debug
 ```
+
+## TODOs:
+2. Stylus Reset behaviour.
+3. Stylus prev/next buttons - saving current selected stylus.
+4. It should be impossible to scan not linked record.

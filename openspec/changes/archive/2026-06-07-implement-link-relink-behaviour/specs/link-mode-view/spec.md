@@ -1,8 +1,5 @@
-# link-mode-view Specification
+## MODIFIED Requirements
 
-## Purpose
-Link mode UI showing unlinked records with prev/next navigation and empty state for NFC tag linking workflow.
-## Requirements
 ### Requirement: Link mode shows only unlinked records
 The link mode SHALL display only records where `linked` is false, except that a record that just completed link success MAY remain visible until the user navigates away from it. The `getLinkRecord()` helper SHALL return the current record from the unlinked subset, and navigation (prev/next) SHALL cycle within unlinked records only. After a successful link and one Prev or Next navigation action, the linked record SHALL no longer be reachable in link mode.
 
@@ -38,6 +35,8 @@ When no unlinked records exist, link mode SHALL display a cover placeholder with
 #### Scenario: No records at all
 - **WHEN** the user enters link mode and the records list is empty
 - **THEN** the UI SHALL show the same empty state with "No unlinked records" text
+
+## ADDED Requirements
 
 ### Requirement: Link action waits for tag result
 When the user clicks the Link button with a link-mode or re-link-mode record selected, the UI SHALL enter a pending link state for that record and SHALL render the same blinking dot indicator used by sync mode under the linked status label while it waits for a link result event.
@@ -102,4 +101,3 @@ When no linked records exist, re-link mode SHALL display a cover placeholder wit
 #### Scenario: No records at all
 - **WHEN** the user enters re-link mode and the records list is empty
 - **THEN** the UI SHALL show the same empty state with "No linked records" text
-
