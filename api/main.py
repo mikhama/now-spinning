@@ -15,7 +15,7 @@ connected_clients: set = set()
 # Runtime event state used to seed newly connected clients without fabricating
 # a default record.
 runtime_state = {
-    "stylus_hours": {"1": 89.6},
+    "stylus_hours": {},
     "temperature_c": 59,
     "current_record_id": None,
     "last_scan_data": None,
@@ -141,11 +141,24 @@ def link_record(id):
 
 @app.get("/styli")
 def list_styli():
+    from api.services.db.database import get_all_styli, init_db
+
+    init_db()
+    styli = get_all_styli()
+    if styli:
+        return jsonify(styli)
     return jsonify([s.model_dump() for s in STYLI.values()])
 
 
 @app.get("/styli/<id>")
 def get_stylus(id):
+    from api.services.db.database import get_all_styli, init_db
+
+    init_db()
+    for stylus in get_all_styli():
+        if stylus["id"] == str(id):
+            return jsonify(stylus)
+
     stylus = STYLI.get(id)
     if stylus is None:
         return jsonify({"error": "Not found"}), 404
@@ -154,6 +167,12 @@ def get_stylus(id):
 
 @app.post("/styli/<id>/reset")
 def reset_stylus(id):
+    from api.services.db.database import init_db, reset_stylus_hours
+
+    init_db()
+    if not reset_stylus_hours(id):
+        return jsonify({"error": "Not found"}), 404
+    runtime_state["stylus_hours"][str(id)] = 0
     return jsonify({"success": True})
 
 

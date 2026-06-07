@@ -107,10 +107,41 @@ def get_all_records():
         conn.close()
 
 
+def get_all_styli():
+    conn = _get_connection()
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """
+            SELECT
+                id,
+                name,
+                distance_hours AS hours,
+                capacity_min_hours AS capacity_min,
+                capacity_max_hours AS capacity_max
+            FROM stylus
+            ORDER BY active DESC, id
+            """
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
 def mark_record_linked(record_id):
     conn = _get_connection()
     try:
         cursor = conn.execute("UPDATE record SET linked = 1 WHERE id = ?", (str(record_id),))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def reset_stylus_hours(stylus_id):
+    conn = _get_connection()
+    try:
+        cursor = conn.execute("UPDATE stylus SET distance_hours = 0 WHERE id = ?", (str(stylus_id),))
         conn.commit()
         return cursor.rowcount > 0
     finally:

@@ -1375,6 +1375,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     document.getElementById("btn-prev-stylus").addEventListener("click", prevStylus);
     document.getElementById("btn-next-stylus").addEventListener("click", nextStylus);
+    document.getElementById("btn-reset-stylus").addEventListener("click", resetStylus);
 
     // Mode buttons
     ["btn-mode-standby", "btn-mode-link", "btn-mode-re-link", "btn-mode-stylus", "btn-mode-sync"].forEach(function (id) {
