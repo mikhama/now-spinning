@@ -2,7 +2,7 @@ from gpiozero import DigitalInputDevice
 from signal import pause
 import time
 
-sensor = DigitalInputDevice(17, pull_up=True)
+sensor = DigitalInputDevice(24, pull_up=True)
 
 count = 0
 start_time = time.time()

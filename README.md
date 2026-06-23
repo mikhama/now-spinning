@@ -102,6 +102,11 @@ To debug PN532 module:
 python -m exp.nfc.nfc_debug
 ```
 
+To check IR sensor:
+```
+python -m exp.platter_spinning
+```
+
 ## TODOs:
 3. Stylus prev/next buttons - saving current selected stylus.
 4. It should be impossible to scan not linked record.
