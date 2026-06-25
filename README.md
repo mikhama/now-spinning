@@ -97,9 +97,13 @@ To diagnose NFC card type:
 python -m exp.nfc.nfc_diagnose
 ```
 
-To debug PN532 module:
+To debug PN532 module (UART):
 ```bash
-python -m exp.nfc.nfc_debug
+python -m exp.nfc.nfc_debug_uart
+```
+or (I2C)
+```bash
+python -m exp.nfc.nfc_debug_i2c
 ```
 
 To check IR sensor:
