@@ -2,7 +2,7 @@
 
 import os
 
-PORT = "/dev/ttyUSB0"
+PN532_MODE = 1  # 0 = UART, 1 = I2C
 START_BLOCK = 4
 
 
@@ -15,8 +15,13 @@ class NfcError(Exception):
 class Pn532Backend:
 
     def __init__(self):
-        from drv.pn532_uart import PN532
-        self._nfc = PN532(PORT)
+        if PN532_MODE == 0:
+            from drv.pn532_uart import PN532
+            conn = "/dev/ttyUSB0"   # serial port
+        else:
+            from drv.pn532_i2c import PN532
+            conn = 6                # I2C bus number
+        self._nfc = PN532(conn)
 
     def read(self) -> str:
         card = self._nfc.wait_for_card(timeout=30)

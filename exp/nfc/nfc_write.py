@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 """Write text to Mifare Classic or NTAG/Ultralight."""
 
-from drv.pn532_uart import PN532
+PN532_MODE = 1  # 0 = UART, 1 = I2C
 
-PORT = "/dev/ttyUSB0"
+if PN532_MODE == 0:
+    from drv.pn532_uart import PN532
+    _CONN = "/dev/ttyUSB0"   # serial port
+else:
+    from drv.pn532_i2c import PN532
+    _CONN = 6                # I2C bus number
+
 START_BLOCK = 4
 
 
@@ -51,7 +57,7 @@ def write_ntag(nfc, text):
 
 
 def main():
-    nfc = PN532(PORT)
+    nfc = PN532(_CONN)
     fw = nfc.get_firmware_version()
     if not fw:
         print("[ERROR] PN532 not found.")
