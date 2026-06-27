@@ -1028,19 +1028,6 @@ function fetchStyli() {
         .catch(function (e) { console.error("Failed to fetch styli:", e); });
 }
 
-function fetchTemperature() {
-    return fetch("/temperature")
-        .then(function (res) { return res.json(); })
-        .then(function (data) {
-            state.temperature = data.celsius;
-            render({ topBar: true, visibility: false, section: false });
-        })
-        .catch(function () {
-            state.temperature = null;
-            render({ topBar: true, visibility: false, section: false });
-        });
-}
-
 function linkRecord() {
     var record = getLinkRecord();
     if (!record) return;
@@ -1349,8 +1336,6 @@ document.addEventListener("DOMContentLoaded", function () {
             render();
         }
         connectWebSocket();
-        fetchTemperature();
-        setInterval(fetchTemperature, 30000);
 
         // Recompute overflow state after fonts finish loading without rewriting text.
         if (document.fonts && document.fonts.ready) {

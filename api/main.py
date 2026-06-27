@@ -2,6 +2,7 @@ import json
 import os
 import signal
 import threading
+import time
 
 from flask import Flask, Response, jsonify, request
 from flask_sock import Sock
@@ -13,12 +14,16 @@ sock = Sock(app)
 
 # Connected WebSocket clients for event broadcasting
 connected_clients: set = set()
+TEMPERATURE_PATH = "/sys/class/thermal/thermal_zone0/temp"
+TEMPERATURE_PUBLISH_INTERVAL_SECONDS = 30
+temperature_publisher_started = False
+temperature_publisher_lock = threading.Lock()
 
 # Runtime event state used to seed newly connected clients without fabricating
 # a default record.
 runtime_state = {
     "stylus_hours": {},
-    "temperature_c": 59,
+    "temperature_c": None,
     "current_record_id": None,
     "last_scan_data": None,
     "status": "idle",
@@ -36,9 +41,8 @@ def update_runtime_state(message):
         if stylus_id is not None and hours is not None:
             runtime_state["stylus_hours"][str(stylus_id)] = hours
     elif event == "temperature_c":
-        temp_c = data.get("temp_c")
-        if temp_c is not None:
-            runtime_state["temperature_c"] = temp_c
+        if "temp_c" in data:
+            runtime_state["temperature_c"] = data.get("temp_c")
     elif event == "current_record":
         runtime_state["current_record_id"] = data.get("record_id")
         runtime_state["last_scan_data"] = None
@@ -59,8 +63,7 @@ def build_initial_events():
         events.append({"event": "stylus_hours", "data": {"hours": hours, "stylus_id": stylus_id}})
 
     temperature_c = runtime_state.get("temperature_c")
-    if temperature_c is not None:
-        events.append({"event": "temperature_c", "data": {"temp_c": temperature_c}})
+    events.append({"event": "temperature_c", "data": {"temp_c": temperature_c}})
 
     if runtime_state["last_scan_data"] is not None:
         events.append({"event": "scan", "data": runtime_state["last_scan_data"]})
@@ -83,6 +86,43 @@ def is_boardless_mode():
 
 def is_kiosk_shutdown_enabled():
     return os.environ.get("KIOSK_SHUTDOWN_ENABLED", "").lower() == "true"
+
+
+def read_pi_temperature_c():
+    try:
+        with open(TEMPERATURE_PATH, "r") as temp_file:
+            millidegrees = int(temp_file.read().strip())
+            return millidegrees / 1000
+    except (FileNotFoundError, OSError, ValueError) as e:
+        app.logger.error("Failed to read Pi temperature: %s", e)
+        return None
+
+
+def publish_temperature_once(read_temperature=read_pi_temperature_c, broadcast=None):
+    temp_c = read_temperature()
+    message = {"event": "temperature_c", "data": {"temp_c": temp_c}}
+    if broadcast is None:
+        broadcast = broadcast_message
+    broadcast(message)
+    return message
+
+
+def run_temperature_publisher(interval_seconds=TEMPERATURE_PUBLISH_INTERVAL_SECONDS):
+    while True:
+        publish_temperature_once()
+        time.sleep(interval_seconds)
+
+
+def start_temperature_publisher():
+    global temperature_publisher_started
+    with temperature_publisher_lock:
+        if temperature_publisher_started:
+            return False
+        temperature_publisher_started = True
+
+    thread = threading.Thread(target=run_temperature_publisher, daemon=True)
+    thread.start()
+    return True
 
 
 def terminate_kiosk_runner():
@@ -266,21 +306,6 @@ def sync():
 
 
 # ---------------------------------------------------------------------------
-# Temperature
-# ---------------------------------------------------------------------------
-
-@app.get("/temperature")
-def get_temperature():
-    try:
-        with open("/sys/class/thermal/thermal_zone0/temp", "r") as f:
-            millidegrees = int(f.read().strip())
-            return jsonify({"celsius": millidegrees / 1000})
-    except (FileNotFoundError, IOError, ValueError) as e:
-        app.logger.error("Failed to read Pi temperature: %s", e)
-        return jsonify({"celsius": None})
-
-
-# ---------------------------------------------------------------------------
 # Server control
 # ---------------------------------------------------------------------------
 
@@ -355,4 +380,5 @@ def ws(ws):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    start_temperature_publisher()
     app.run(host="0.0.0.0", port=5000)

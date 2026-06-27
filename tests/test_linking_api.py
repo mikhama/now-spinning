@@ -1,10 +1,12 @@
 import json
 import os
+from pathlib import Path
 import tempfile
 import unittest
 from copy import deepcopy
-from unittest.mock import patch
+from unittest.mock import mock_open, patch
 
+import api.main as api_main
 from api.main import app, build_initial_events, is_boardless_mode, runtime_state
 from api.services.db import database
 
@@ -14,6 +16,7 @@ class LinkingApiTestCase(unittest.TestCase):
         self.tmpdir = tempfile.TemporaryDirectory()
         self.original_db_path = database.DB_PATH
         self.original_runtime_state = deepcopy(runtime_state)
+        self.original_temperature_publisher_started = api_main.temperature_publisher_started
         database.DB_PATH = os.path.join(self.tmpdir.name, "now-spinning.db")
         database.init_db()
         self.client = app.test_client()
@@ -22,6 +25,7 @@ class LinkingApiTestCase(unittest.TestCase):
         database.DB_PATH = self.original_db_path
         runtime_state.clear()
         runtime_state.update(self.original_runtime_state)
+        api_main.temperature_publisher_started = self.original_temperature_publisher_started
         self.tmpdir.cleanup()
 
     def insert_record(self, record_id="1", linked=0):
@@ -108,6 +112,75 @@ class LinkingApiTestCase(unittest.TestCase):
         events = build_initial_events()
 
         self.assertFalse(any(event["event"] == "stylus_hours" for event in events))
+
+    def test_initial_events_emit_null_temperature_until_real_reading_exists(self):
+        runtime_state["temperature_c"] = None
+
+        events = build_initial_events()
+
+        temperature_events = [event for event in events if event["event"] == "temperature_c"]
+        self.assertEqual(temperature_events, [{"event": "temperature_c", "data": {"temp_c": None}}])
+        self.assertNotEqual(temperature_events[0]["data"]["temp_c"], 59)
+
+    def test_initial_events_emit_real_temperature_after_reading_exists(self):
+        runtime_state["temperature_c"] = 59.2
+
+        events = build_initial_events()
+
+        self.assertIn({"event": "temperature_c", "data": {"temp_c": 59.2}}, events)
+
+    def test_temperature_endpoint_is_removed(self):
+        response = self.client.get("/temperature")
+
+        self.assertEqual(response.status_code, 404)
+
+    def test_read_pi_temperature_returns_celsius_or_none(self):
+        with patch("builtins.open", mock_open(read_data="59200\n")):
+            self.assertEqual(api_main.read_pi_temperature_c(), 59.2)
+
+        with patch("builtins.open", side_effect=FileNotFoundError("missing")):
+            self.assertIsNone(api_main.read_pi_temperature_c())
+
+    def test_temperature_publisher_broadcasts_successful_payload_without_waiting(self):
+        sent_messages = []
+
+        message = api_main.publish_temperature_once(
+            read_temperature=lambda: 59.2,
+            broadcast=sent_messages.append,
+        )
+
+        expected = {"event": "temperature_c", "data": {"temp_c": 59.2}}
+        self.assertEqual(message, expected)
+        self.assertEqual(sent_messages, [expected])
+
+    def test_temperature_publisher_broadcasts_null_payload_without_waiting(self):
+        sent_messages = []
+
+        message = api_main.publish_temperature_once(
+            read_temperature=lambda: None,
+            broadcast=sent_messages.append,
+        )
+
+        expected = {"event": "temperature_c", "data": {"temp_c": None}}
+        self.assertEqual(message, expected)
+        self.assertEqual(sent_messages, [expected])
+
+    def test_temperature_publisher_starts_once_per_process(self):
+        api_main.temperature_publisher_started = False
+
+        with patch("api.main.threading.Thread") as thread_class:
+            self.assertTrue(api_main.start_temperature_publisher())
+            self.assertFalse(api_main.start_temperature_publisher())
+
+        thread_class.assert_called_once()
+        thread_class.return_value.start.assert_called_once()
+
+    def test_frontend_does_not_fetch_temperature_endpoint(self):
+        app_js = Path(__file__).resolve().parents[1] / "ui" / "app.js"
+        source = app_js.read_text()
+
+        self.assertNotIn('fetch("/temperature")', source)
+        self.assertIn('case "temperature_c":', source)
 
     def test_stylus_reset_endpoint_returns_404_without_changing_data(self):
         self.insert_stylus("1", distance_hours=89.6)

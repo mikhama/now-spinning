@@ -112,7 +112,8 @@ python -m exp.platter_spinning
 ```
 
 ## TODOs:
-3. Stylus prev/next buttons - saving current selected stylus.
-4. It should be impossible to scan not linked record.
-5. Stylus count hours during playback.
-6. Played albums log with duration.
+1. Stylus prev/next buttons - saving current selected stylus.
+2. It should be impossible to scan not linked record.
+3. Stylus count hours during playback.
+4. Played albums log with duration.
+5. Add shutdown button on the right of stylus hours.
