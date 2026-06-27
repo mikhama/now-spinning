@@ -299,14 +299,15 @@ The Link button, Re-Link button, and Reset Stylus button SHALL be rendered but h
 - **THEN** nothing SHALL happen — no API call
 
 ### Requirement: REST API integration
-The UI SHALL fetch data from the API's REST endpoints on load.
+The UI SHALL fetch record and stylus data from the API's REST endpoints on load. The UI SHALL NOT fetch `GET /temperature`; top-bar temperature state SHALL only reflect received WebSocket events.
 
 #### Scenario: Initial data load
 - **WHEN** the page loads
 - **THEN** the UI SHALL fetch `GET /records` and `GET /styli` to populate local state
+- **AND** the UI SHALL NOT fetch `GET /temperature`
 
 ### Requirement: WebSocket connection for live updates
-The UI SHALL establish a WebSocket connection to `/ws` and process incoming events to update the display in real time. WebSocket status events SHALL be ignored when a URL hash is present (dev mode). When no URL hash is present, a `status` event with `{"status": "play", "time": "MM:SS"}` SHALL transition the UI to Play mode, update the playback time shown in the top bar, and represent a spinning turntable. The UI SHALL NOT store a separate `spinning` payload field. A `status` event with `{"status": "stop"}` SHALL return the UI to Standby mode, represent a non-spinning turntable, and remove the Play-only playback time display.
+The UI SHALL establish a WebSocket connection to `/ws` and process incoming events to update the display in real time. WebSocket status events SHALL be ignored when a URL hash is present (dev mode). When no URL hash is present, a `status` event with `{"status": "play", "time": "MM:SS"}` SHALL transition the UI to Play mode, update the playback time shown in the top bar, and represent a spinning turntable. The UI SHALL NOT store a separate `spinning` payload field. A `status` event with `{"status": "stop"}` SHALL return the UI to Standby mode, represent a non-spinning turntable, and remove the Play-only playback time display. Temperature updates SHALL be driven by backend WebSocket `temperature_c` events rather than frontend polling.
 
 #### Scenario: Receive stylus_hours event
 - **WHEN** the WebSocket sends `{"event": "stylus_hours", "data": {"hours": 89.6, "stylus_id": "1"}}`
@@ -315,6 +316,14 @@ The UI SHALL establish a WebSocket connection to `/ws` and process incoming even
 #### Scenario: Receive current_record event
 - **WHEN** the WebSocket sends `{"event": "current_record", "data": {"record_id": "1"}}`
 - **THEN** the UI SHALL update the current record display
+
+#### Scenario: Receive temperature unavailable event
+- **WHEN** the WebSocket sends `{"event": "temperature_c", "data": {"temp_c": null}}`
+- **THEN** the UI SHALL update the temperature display to "N/A"
+
+#### Scenario: Receive temperature reading event
+- **WHEN** the WebSocket sends `{"event": "temperature_c", "data": {"temp_c": 59.2}}`
+- **THEN** the UI SHALL update the temperature display to "59 °C"
 
 #### Scenario: Receive status play event with time
 - **WHEN** the WebSocket sends `{"event": "status", "data": {"status": "play", "time": "00:01"}}` and no URL hash is present
@@ -329,15 +338,15 @@ The UI SHALL establish a WebSocket connection to `/ws` and process incoming even
 
 #### Scenario: Receive status stop event
 - **WHEN** the WebSocket sends `{"event": "status", "data": {"status": "stop"}}` and no URL hash is present
-- **THEN** the UI SHALL transition out of Play mode
-- **AND** the top bar SHALL stop rendering a playback time next to the mode label
+- **THEN** the UI SHALL transition to Standby mode
+- **AND** the top bar SHALL remove the Play-only playback time display
 
 #### Scenario: Receive status event with hash
 - **WHEN** the WebSocket sends a status event and a URL hash is present
 - **THEN** the UI SHALL ignore the event and NOT change modes
 
-#### Scenario: WebSocket reconnect on disconnect
-- **WHEN** the WebSocket connection is lost
+#### Scenario: WebSocket reconnect
+- **WHEN** the WebSocket connection closes
 - **THEN** the UI SHALL attempt to reconnect every 3 seconds
 
 ### Requirement: Boardless Play elapsed side and song selection
@@ -498,7 +507,7 @@ Artist names, album titles, and the current track name SHALL remain on a single 
 The frontend SHALL update only the DOM slices affected by a state change instead of rerunning the full visible view render for every event. Updates that only change top-bar or stylus summary data SHALL NOT rewrite record metadata fields when the visible record, side, and track content are unchanged.
 
 #### Scenario: Temperature refresh updates only top-bar data
-- **WHEN** periodic temperature polling returns a new reading while the current mode and visible record metadata are unchanged
+- **WHEN** a temperature WebSocket event provides a new reading while the current mode and visible record metadata are unchanged
 - **THEN** the UI SHALL update the temperature display without rewriting the active artist, album, or track metadata DOM
 
 #### Scenario: Stylus-hours update leaves record metadata untouched
