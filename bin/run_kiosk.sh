@@ -4,6 +4,7 @@ set -eu
 APP_URL="http://127.0.0.1:5000/"
 MAX_READINESS_ATTEMPTS=60
 APP_PID=""
+CHROMIUM_PID=""
 CHROMIUM_PROFILE_DIR=""
 
 SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
@@ -17,6 +18,11 @@ cleanup() {
     if [ -n "$APP_PID" ] && kill -0 "$APP_PID" 2>/dev/null; then
         kill "$APP_PID" 2>/dev/null || true
         wait "$APP_PID" 2>/dev/null || true
+    fi
+
+    if [ -n "$CHROMIUM_PID" ] && kill -0 "$CHROMIUM_PID" 2>/dev/null; then
+        kill "$CHROMIUM_PID" 2>/dev/null || true
+        wait "$CHROMIUM_PID" 2>/dev/null || true
     fi
 
     if [ -n "$CHROMIUM_PROFILE_DIR" ] && [ -d "$CHROMIUM_PROFILE_DIR" ]; then
@@ -42,6 +48,8 @@ fi
 . "$VENV_ACTIVATE"
 
 cd "$REPO_ROOT"
+KIOSK_SHUTDOWN_ENABLED=true
+export KIOSK_SHUTDOWN_ENABLED
 python -m api.main &
 APP_PID=$!
 
@@ -84,4 +92,7 @@ chromium \
     --disable-infobars \
     --disable-session-crashed-bubble \
     --user-data-dir="$CHROMIUM_PROFILE_DIR" \
-    "$APP_URL"
+    "$APP_URL" &
+CHROMIUM_PID=$!
+
+wait "$CHROMIUM_PID"

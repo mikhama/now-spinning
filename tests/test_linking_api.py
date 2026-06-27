@@ -178,6 +178,28 @@ class LinkingApiTestCase(unittest.TestCase):
         html = response.get_data(as_text=True)
         self.assertIn('<html data-boardless-mode="true" lang="en">', html)
 
+    def test_kiosk_exit_rejects_when_shutdown_not_enabled(self):
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("api.main.threading.Timer") as timer:
+                response = self.client.post("/kiosk/exit")
+
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.get_json(), {"error": "Kiosk shutdown is disabled"})
+        timer.assert_not_called()
+
+    def test_kiosk_exit_schedules_parent_termination_when_enabled(self):
+        with patch.dict(os.environ, {"KIOSK_SHUTDOWN_ENABLED": "TRUE"}):
+            with patch("api.main.threading.Timer") as timer:
+                response = self.client.post("/kiosk/exit")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"success": True})
+        timer.assert_called_once()
+        delay, callback = timer.call_args.args
+        self.assertEqual(delay, 0.1)
+        self.assertEqual(callback.__name__, "terminate_kiosk_runner")
+        timer.return_value.start.assert_called_once_with()
+
 
 if __name__ == "__main__":
     unittest.main()

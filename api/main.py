@@ -1,5 +1,7 @@
 import json
 import os
+import signal
+import threading
 
 from flask import Flask, Response, jsonify, request
 from flask_sock import Sock
@@ -77,6 +79,16 @@ def build_initial_events():
 
 def is_boardless_mode():
     return os.environ.get("BOARDLESS_MODE", "").lower() == "true"
+
+
+def is_kiosk_shutdown_enabled():
+    return os.environ.get("KIOSK_SHUTDOWN_ENABLED", "").lower() == "true"
+
+
+def terminate_kiosk_runner():
+    parent_pid = os.getppid()
+    if parent_pid > 1:
+        os.kill(parent_pid, signal.SIGTERM)
 
 
 def render_index_html():
@@ -274,6 +286,15 @@ def get_temperature():
 
 @app.post("/shutdown")
 def shutdown():
+    return jsonify({"success": True})
+
+
+@app.post("/kiosk/exit")
+def kiosk_exit():
+    if not is_kiosk_shutdown_enabled():
+        return jsonify({"error": "Kiosk shutdown is disabled"}), 403
+
+    threading.Timer(0.1, terminate_kiosk_runner).start()
     return jsonify({"success": True})
 
 
