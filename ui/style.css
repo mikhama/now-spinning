@@ -158,16 +158,17 @@ body::before {
 }
 
 #kiosk-exit-button {
-    width: 3.25rem;
-    height: 100%;
-    margin-left: auto;
-    flex-shrink: 0;
+    flex: 1 1 auto;
+    align-self: stretch;
+    min-width: 6rem;
+    margin: 0 0.75rem;
     appearance: none;
     border: 0;
     background: transparent;
     color: transparent;
     font: inherit;
     cursor: default;
+    touch-action: manipulation;
 }
 
 #kiosk-exit-button:focus {

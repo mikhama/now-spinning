@@ -60,12 +60,20 @@ function clearPendingLink() {
     state.pendingLinkMode = null;
 }
 
-function requestKioskExit() {
+function requestKioskExit(event) {
+    if (event) {
+        event.preventDefault();
+    }
     if (!window.confirm("Exit kiosk mode?")) return;
 
     fetch("/kiosk/exit", { method: "POST" }).catch(function () {
         // The kiosk process may stop before the browser receives the response.
     });
+}
+
+function addKioskExitListener(button) {
+    var eventName = window.PointerEvent ? "pointerup" : "click";
+    button.addEventListener(eventName, requestKioskExit);
 }
 
 // ---------------------------------------------------------------------------
@@ -1367,7 +1375,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Button event listeners
-    document.getElementById("kiosk-exit-button").addEventListener("click", requestKioskExit);
+    addKioskExitListener(document.getElementById("kiosk-exit-button"));
 
     document.getElementById("btn-side-standby").addEventListener("click", switchSide);
 
