@@ -17,6 +17,19 @@ The frontend SHALL consist of exactly three files: `ui/index.html`, `ui/style.cs
 - **WHEN** the `ui/` directory is listed
 - **THEN** it SHALL contain `index.html`, `style.css`, and `app.js`
 
+### Requirement: Boardless-only root font-size marker
+The UI SHALL mark the `<html>` element as boardless only when the application is served in boardless mode, and SHALL NOT set or enable root `<html>` font-size styling in normal board mode.
+
+#### Scenario: Normal board mode leaves root font-size unset
+- **WHEN** the UI document is served without `BOARDLESS_MODE=true`
+- **THEN** the `<html>` element SHALL NOT include a boardless-mode marker
+- **AND** no application stylesheet or inline style SHALL set `font-size` on the unmarked `<html>` element
+
+#### Scenario: Boardless mode enables root font-size styling
+- **WHEN** the UI document is served with `BOARDLESS_MODE=true`
+- **THEN** the `<html>` element SHALL include a boardless-mode marker
+- **AND** the application stylesheet SHALL apply the calculated root font-size only through that boardless-mode marker
+
 ### Requirement: Persistent top bar
 The UI SHALL display a persistent top bar across all modes with `background: var(--paper)`, `border-bottom: 2px solid var(--ink)`, showing the current mode label in DM Mono 11px uppercase on the left. In Play mode, when runtime state includes a playback time derived from a server `status` event, the left side SHALL render `PLAY {mm:ss}` with a single space separator. When no playback time is available, the left side SHALL render only the mode label. The right side SHALL contain a compact stylus wear bar (≈4rem × 0.5rem) followed by the Pi temperature in DM Mono 11px `color: var(--ink-mute)` format "{int} °C". The previous plain-text stylus hours display is removed from the top bar.
 

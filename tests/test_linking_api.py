@@ -5,7 +5,7 @@ import unittest
 from copy import deepcopy
 from unittest.mock import patch
 
-from api.main import app, build_initial_events, runtime_state
+from api.main import app, build_initial_events, is_boardless_mode, runtime_state
 from api.services.db import database
 
 
@@ -151,6 +151,32 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {"success": True})
         broadcast_message.assert_called_once_with(payload)
+
+    def test_boardless_mode_helper_matches_true_case_insensitively(self):
+        for value in ("true", "TRUE", "TrUe"):
+            with patch.dict(os.environ, {"BOARDLESS_MODE": value}):
+                self.assertTrue(is_boardless_mode())
+
+        for value in ("", "false", "1", " true "):
+            with patch.dict(os.environ, {"BOARDLESS_MODE": value}, clear=False):
+                self.assertFalse(is_boardless_mode())
+
+    def test_index_leaves_html_unmarked_without_boardless_mode(self):
+        with patch.dict(os.environ, {}, clear=True):
+            response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('<html lang="en">', html)
+        self.assertNotIn("data-boardless-mode", html)
+
+    def test_index_marks_html_in_boardless_mode(self):
+        with patch.dict(os.environ, {"BOARDLESS_MODE": "TRUE"}):
+            response = self.client.get("/")
+
+        self.assertEqual(response.status_code, 200)
+        html = response.get_data(as_text=True)
+        self.assertIn('<html data-boardless-mode="true" lang="en">', html)
 
 
 if __name__ == "__main__":

@@ -75,6 +75,21 @@ def build_initial_events():
     return events
 
 
+def is_boardless_mode():
+    return os.environ.get("BOARDLESS_MODE", "").lower() == "true"
+
+
+def render_index_html():
+    index_path = os.path.join(app.static_folder, "index.html")
+    with open(index_path, encoding="utf-8") as index_file:
+        html = index_file.read()
+
+    if is_boardless_mode():
+        html = html.replace("<html ", '<html data-boardless-mode="true" ', 1)
+
+    return html
+
+
 def broadcast_message(message, *, exclude_client=None):
     payload = json.dumps(message)
     update_runtime_state(message)
@@ -89,7 +104,7 @@ def broadcast_message(message, *, exclude_client=None):
 
 @app.route("/")
 def index():
-    return app.send_static_file("index.html")
+    return Response(render_index_html(), mimetype="text/html")
 
 
 # ---------------------------------------------------------------------------

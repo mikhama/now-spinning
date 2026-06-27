@@ -4,19 +4,23 @@
 Design system for the Now Spinning turntable controller UI, defining colors, typography, sizing units, and visual treatments.
 ## Requirements
 ### Requirement: Rem-based sizing units
-All dimensional values (font sizes, widths, heights, padding, margins, gaps, box-shadows) SHALL use rem units. The root font-size SHALL be calculated as `calc(var(--screen-width) / 50 * var(--dpi-correction))` where `--screen-width` is the physical display width in cm (default 9.37cm) and `--dpi-correction` compensates for browser DPI assumptions (default 1). Body dimensions SHALL be `50rem × 30rem`. Border widths (1px, 2px) remain in px for crispness.
+All dimensional values (font sizes, widths, heights, padding, margins, gaps, box-shadows) SHALL use rem units. In boardless mode only, the root font-size SHALL be calculated as `calc(var(--screen-width) / 50 * var(--dpi-correction))` where `--screen-width` is the physical display width in cm (default 9.37cm) and `--dpi-correction` compensates for browser DPI assumptions (default 1). In normal board mode, the UI SHALL NOT set `font-size` on the `<html>` element. Body dimensions SHALL be `50rem × 30rem`. Border widths (1px, 2px) remain in px for crispness.
 
-#### Scenario: Root font-size is calculated from physical dimensions
-- **WHEN** the stylesheet is loaded
+#### Scenario: Boardless root font-size is calculated from physical dimensions
+- **WHEN** the stylesheet is loaded and the `<html>` element is marked as boardless mode
 - **THEN** `html` SHALL compute font-size from `--screen-width / 50 * --dpi-correction`
+
+#### Scenario: Normal board root font-size is not set
+- **WHEN** the stylesheet is loaded and the `<html>` element is not marked as boardless mode
+- **THEN** the UI stylesheet SHALL NOT set `font-size` on `html`
 
 #### Scenario: Body uses rem dimensions
 - **WHEN** the UI renders
 - **THEN** body width SHALL be `50rem` and height SHALL be `30rem`
 
-#### Scenario: Uniform scaling
-- **WHEN** `--screen-width` or `--dpi-correction` is changed
-- **THEN** all UI elements SHALL scale proportionally (fonts, spacing, dimensions)
+#### Scenario: Uniform scaling in boardless mode
+- **WHEN** the `<html>` element is marked as boardless mode and `--screen-width` or `--dpi-correction` is changed
+- **THEN** all rem-sized UI elements SHALL scale proportionally (fonts, spacing, dimensions)
 
 ### Requirement: Design system color palette
 The UI SHALL use CSS custom properties matching the design system palette: `--paper: #efe6d4`, `--paper-dark: #e4d9c0`, `--cream: #f5ecd8`, `--ink: #1a1410`, `--ink-soft: #3a2e24`, `--ink-mute: #6b5c4a`, `--amber: #b8612b`, `--amber-deep: #8a3f15`, `--vinyl: #0d0a08`, `--gold: #b8944a`, `--red-ink: #9a2e1f`.
@@ -152,4 +156,3 @@ The design system SHALL provide a reusable marquee-style overflow treatment for 
 #### Scenario: Existing typography is preserved
 - **WHEN** the marquee treatment is applied to artist, album, or track text
 - **THEN** the field SHALL keep the font family, size, weight, style, and color already defined for that metadata role
-

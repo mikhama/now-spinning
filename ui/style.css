@@ -100,6 +100,9 @@ html {
        Measure a rendered element with a ruler, then adjust:
        correction = expected_cm / measured_cm */
     --dpi-correction: 1.1786;
+}
+
+html[data-boardless-mode="true"] {
     /* 1rem = screen width / 50 (body is 50rem wide) × correction */
     font-size: calc(var(--screen-width) / 50 * var(--dpi-correction));
 }
