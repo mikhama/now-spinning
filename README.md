@@ -25,9 +25,9 @@ pip install -r requirements.in
 
 ## Usage
 
-To run the app on Pi:
+To run the app in kiosk mode on Pi:
 ```bash
-python -m api.main
+./bin/run_kiosk.sh
 ```
 
 ## Development
