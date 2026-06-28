@@ -136,3 +136,4 @@ For my **Dual 721** constants are the next:
 4. Played albums log with duration.
 5. Add shutdown button on the right of stylus hours.
 6. Add stylus hours storing mechanism.
+7. Try to detect stop - if spinning RPM started constantly decrease.
