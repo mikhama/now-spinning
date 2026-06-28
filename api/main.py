@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import signal
 import threading
@@ -12,6 +13,9 @@ from api.playback_status import run_playback_status_publisher
 
 app = Flask(__name__, static_folder="../ui", static_url_path="")
 sock = Sock(app)
+
+logging.basicConfig(level=logging.INFO, format="[%(asctime)s] %(levelname)s in %(name)s: %(message)s")
+app.logger.setLevel(logging.INFO)
 
 # Connected WebSocket clients for event broadcasting
 connected_clients: set = set()
