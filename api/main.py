@@ -183,9 +183,17 @@ def persist_link_success(record_id):
     return mark_record_linked(record_id)
 
 
+def is_record_linked(record_id):
+    from api.services.db.database import init_db, is_record_linked as db_is_record_linked
+
+    init_db()
+    return db_is_record_linked(record_id)
+
+
 nfc_coordinator = NfcCoordinator(
     broadcast=broadcast_message,
     persist_link_success=persist_link_success,
+    is_record_linked=is_record_linked,
     logger=app.logger,
 )
 

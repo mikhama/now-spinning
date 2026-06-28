@@ -80,6 +80,14 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertEqual(self.get_linked_value("1"), 1)
         self.assertFalse(database.mark_record_linked("999"))
 
+    def test_is_record_linked_requires_matching_linked_row(self):
+        self.insert_record("1", linked=0)
+        self.insert_record("2", linked=1)
+
+        self.assertFalse(database.is_record_linked("1"))
+        self.assertTrue(database.is_record_linked("2"))
+        self.assertFalse(database.is_record_linked("999"))
+
     def test_records_link_endpoint_persists_or_returns_404(self):
         self.insert_record("1", linked=0)
 
@@ -210,6 +218,20 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertIn('requestNfcWrite(record.id, "link")', source)
         self.assertIn('requestNfcWrite(record.id, "re-link")', source)
         self.assertIn('@app.post("/events")', api_source)
+
+    def test_frontend_null_scan_payload_uses_nfc_error_state(self):
+        app_js = Path(__file__).resolve().parents[1] / "ui" / "app.js"
+        source = app_js.read_text()
+
+        self.assertIn("if (msgData.record_id === null)", source)
+        self.assertIn('clearActiveRecord("nfc")', source)
+
+    def test_backend_linked_scan_check_uses_database_helper(self):
+        self.insert_record("1", linked=0)
+        self.insert_record("2", linked=1)
+
+        self.assertFalse(api_main.is_record_linked("1"))
+        self.assertTrue(api_main.is_record_linked("2"))
 
     def test_stylus_reset_endpoint_returns_404_without_changing_data(self):
         self.insert_stylus("1", distance_hours=89.6)

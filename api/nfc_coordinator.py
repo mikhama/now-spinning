@@ -15,6 +15,7 @@ class NfcCoordinator:
         write_nfc=nfc_write,
         broadcast=None,
         persist_link_success=None,
+        is_record_linked=None,
         logger=None,
         poll_interval_seconds=1,
         read_timeout_seconds=1,
@@ -24,6 +25,7 @@ class NfcCoordinator:
         self.write_nfc = write_nfc
         self.broadcast = broadcast
         self.persist_link_success = persist_link_success
+        self.is_record_linked = is_record_linked
         self.logger = logger
         self.poll_interval_seconds = poll_interval_seconds
         self.read_timeout_seconds = read_timeout_seconds
@@ -93,6 +95,11 @@ class NfcCoordinator:
             return
 
         record_id = str(record_id)
+        if self.is_record_linked and not self.is_record_linked(record_id):
+            self.scan_error_emitted = False
+            self._broadcast({"event": "scan", "data": {"record_id": None}})
+            return
+
         self.last_successful_record_id = record_id
         self.scan_error_emitted = False
         if record_id != self.last_emitted_record_id:

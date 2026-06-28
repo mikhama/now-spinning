@@ -138,6 +138,18 @@ def mark_record_linked(record_id):
         conn.close()
 
 
+def is_record_linked(record_id):
+    conn = _get_connection()
+    try:
+        row = conn.execute(
+            "SELECT 1 FROM record WHERE id = ? AND linked = 1",
+            (str(record_id),),
+        ).fetchone()
+        return row is not None
+    finally:
+        conn.close()
+
+
 def reset_stylus_hours(stylus_id):
     conn = _get_connection()
     try:

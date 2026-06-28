@@ -69,6 +69,19 @@ class NfcCoordinatorTestCase(unittest.TestCase):
         self.assertEqual(coordinator.last_successful_record_id, "2")
         self.assertEqual(coordinator.last_emitted_record_id, "2")
 
+    def test_unlinked_scanned_record_emits_nfc_error_scan_without_activating_record(self):
+        coordinator, messages = self.make_coordinator(
+            read_nfc=lambda timeout: "1",
+            is_record_linked=lambda record_id: False,
+        )
+        coordinator.set_mode("standby")
+
+        coordinator.tick()
+
+        self.assertEqual(messages, [{"event": "scan", "data": {"record_id": None}}])
+        self.assertIsNone(coordinator.last_successful_record_id)
+        self.assertIsNone(coordinator.last_emitted_record_id)
+
     def test_active_write_request_pauses_standby_polling_and_writes_exact_record_id(self):
         calls = []
 
