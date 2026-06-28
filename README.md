@@ -131,3 +131,4 @@ For my **Dual 721** constants are the next:
 3. Stylus count hours during playback.
 4. Played albums log with duration.
 5. Add shutdown button on the right of stylus hours.
+6. Add stylus hours storing mechanism.

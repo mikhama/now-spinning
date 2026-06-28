@@ -8,6 +8,7 @@ from flask import Flask, Response, jsonify, request
 from flask_sock import Sock
 
 from api.mock_data import RECORDS, STYLI
+from api.playback_status import run_playback_status_publisher
 
 app = Flask(__name__, static_folder="../ui", static_url_path="")
 sock = Sock(app)
@@ -18,6 +19,8 @@ TEMPERATURE_PATH = "/sys/class/thermal/thermal_zone0/temp"
 TEMPERATURE_PUBLISH_INTERVAL_SECONDS = 30
 temperature_publisher_started = False
 temperature_publisher_lock = threading.Lock()
+playback_status_publisher_started = False
+playback_status_publisher_lock = threading.Lock()
 
 # Runtime event state used to seed newly connected clients without fabricating
 # a default record.
@@ -121,6 +124,22 @@ def start_temperature_publisher():
         temperature_publisher_started = True
 
     thread = threading.Thread(target=run_temperature_publisher, daemon=True)
+    thread.start()
+    return True
+
+
+def start_playback_status_publisher():
+    global playback_status_publisher_started
+    with playback_status_publisher_lock:
+        if playback_status_publisher_started:
+            return False
+        playback_status_publisher_started = True
+
+    thread = threading.Thread(
+        target=run_playback_status_publisher,
+        kwargs={"broadcast": broadcast_message, "logger": app.logger},
+        daemon=True,
+    )
     thread.start()
     return True
 
@@ -381,4 +400,5 @@ def ws(ws):
 
 if __name__ == "__main__":
     start_temperature_publisher()
+    start_playback_status_publisher()
     app.run(host="0.0.0.0", port=5000)

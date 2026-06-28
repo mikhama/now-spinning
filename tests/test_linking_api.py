@@ -17,6 +17,7 @@ class LinkingApiTestCase(unittest.TestCase):
         self.original_db_path = database.DB_PATH
         self.original_runtime_state = deepcopy(runtime_state)
         self.original_temperature_publisher_started = api_main.temperature_publisher_started
+        self.original_playback_status_publisher_started = api_main.playback_status_publisher_started
         database.DB_PATH = os.path.join(self.tmpdir.name, "now-spinning.db")
         database.init_db()
         self.client = app.test_client()
@@ -26,6 +27,7 @@ class LinkingApiTestCase(unittest.TestCase):
         runtime_state.clear()
         runtime_state.update(self.original_runtime_state)
         api_main.temperature_publisher_started = self.original_temperature_publisher_started
+        api_main.playback_status_publisher_started = self.original_playback_status_publisher_started
         self.tmpdir.cleanup()
 
     def insert_record(self, record_id="1", linked=0):
@@ -175,6 +177,20 @@ class LinkingApiTestCase(unittest.TestCase):
         thread_class.assert_called_once()
         thread_class.return_value.start.assert_called_once()
 
+    def test_playback_status_publisher_starts_once_per_process(self):
+        api_main.playback_status_publisher_started = False
+
+        with patch("api.main.threading.Thread") as thread_class:
+            self.assertTrue(api_main.start_playback_status_publisher())
+            self.assertFalse(api_main.start_playback_status_publisher())
+
+        thread_class.assert_called_once()
+        _, kwargs = thread_class.call_args
+        self.assertEqual(kwargs["target"], api_main.run_playback_status_publisher)
+        self.assertEqual(kwargs["kwargs"]["broadcast"], api_main.broadcast_message)
+        self.assertTrue(kwargs["daemon"])
+        thread_class.return_value.start.assert_called_once()
+
     def test_frontend_does_not_fetch_temperature_endpoint(self):
         app_js = Path(__file__).resolve().parents[1] / "ui" / "app.js"
         source = app_js.read_text()
@@ -224,6 +240,15 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {"success": True})
         broadcast_message.assert_called_once_with(payload)
+
+    def test_detected_status_messages_update_runtime_state(self):
+        api_main.broadcast_message({"event": "status", "data": {"status": "play"}})
+        self.assertEqual(runtime_state["status"], "play")
+        self.assertIsNone(runtime_state["status_time"])
+
+        api_main.broadcast_message({"event": "status", "data": {"status": "stop"}})
+        self.assertEqual(runtime_state["status"], "stop")
+        self.assertIsNone(runtime_state["status_time"])
 
     def test_boardless_mode_helper_matches_true_case_insensitively(self):
         for value in ("true", "TRUE", "TrUe"):
