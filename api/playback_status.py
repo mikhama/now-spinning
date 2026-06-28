@@ -124,9 +124,19 @@ def status_message(status, time_value=None):
     return {"event": "status", "data": data}
 
 
-def publish_playback_status_once(detector, read_rpm, broadcast):
+def publish_playback_status_once(detector, read_rpm, broadcast, logger=None):
+    state_before = detector.state
     rpm = read_rpm()
     message = detector.sample(rpm)
+    if logger is not None:
+        logger.info(
+            "Playback status sample: rpm=%.2f threshold=%s state=%s->%s message=%s",
+            rpm,
+            detector.rpm_threshold,
+            state_before,
+            detector.state,
+            message,
+        )
     if message is None:
         return None
 
@@ -158,7 +168,7 @@ def run_playback_status_publisher(
     try:
         while True:
             try:
-                publish_playback_status_once(detector, reader.read_rpm, broadcast)
+                publish_playback_status_once(detector, reader.read_rpm, broadcast, logger=logger)
             except Exception as e:
                 logger.error("Failed to publish playback status: %s", e)
             sleep(interval_seconds)
