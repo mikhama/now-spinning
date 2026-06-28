@@ -90,6 +90,7 @@ chromium \
     --kiosk \
     --no-first-run \
     --disable-infobars \
+    --password-store=basic \
     --disable-session-crashed-bubble \
     --user-data-dir="$CHROMIUM_PROFILE_DIR" \
     "$APP_URL" &
