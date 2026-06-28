@@ -242,9 +242,9 @@ class LinkingApiTestCase(unittest.TestCase):
         broadcast_message.assert_called_once_with(payload)
 
     def test_detected_status_messages_update_runtime_state(self):
-        api_main.broadcast_message({"event": "status", "data": {"status": "play"}})
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:01"}})
         self.assertEqual(runtime_state["status"], "play")
-        self.assertIsNone(runtime_state["status_time"])
+        self.assertEqual(runtime_state["status_time"], "00:01")
 
         api_main.broadcast_message({"event": "status", "data": {"status": "stop"}})
         self.assertEqual(runtime_state["status"], "stop")

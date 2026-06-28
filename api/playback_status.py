@@ -28,6 +28,8 @@ class PlaybackStatusDetector:
         self.monotonic = monotonic
         self.state = self.STOPPED
         self.threshold_reached_at = None
+        self.playback_started_at = None
+        self.last_emitted_playback_seconds = None
 
     def sample(self, rpm, now=None):
         if now is None:
@@ -37,7 +39,9 @@ class PlaybackStatusDetector:
             was_playing = self.state == self.PLAYING
             self.state = self.STOPPED
             self.threshold_reached_at = None
-            return STATUS_STOP if was_playing else None
+            self.playback_started_at = None
+            self.last_emitted_playback_seconds = None
+            return status_message(STATUS_STOP) if was_playing else None
 
         if self.state == self.STOPPED:
             self.state = self.THRESHOLD_REACHED
@@ -47,8 +51,16 @@ class PlaybackStatusDetector:
         if self.state == self.THRESHOLD_REACHED:
             if now - self.threshold_reached_at >= self.tonearm_delay_seconds:
                 self.state = self.PLAYING
-                return STATUS_PLAY
+                self.playback_started_at = now
+                self.last_emitted_playback_seconds = 0
+                return status_message(STATUS_PLAY, time_value=format_playback_time(0))
             return None
+
+        if self.state == self.PLAYING:
+            playback_seconds = int(now - self.playback_started_at)
+            if playback_seconds > self.last_emitted_playback_seconds:
+                self.last_emitted_playback_seconds = playback_seconds
+                return status_message(STATUS_PLAY, time_value=format_playback_time(playback_seconds))
 
         return None
 
@@ -100,17 +112,24 @@ def create_gpio_rpm_reader():
     return GpioRpmReader()
 
 
-def status_message(status):
-    return {"event": "status", "data": {"status": status}}
+def format_playback_time(total_seconds):
+    minutes, seconds = divmod(max(int(total_seconds), 0), 60)
+    return f"{minutes:02d}:{seconds:02d}"
+
+
+def status_message(status, time_value=None):
+    data = {"status": status}
+    if time_value is not None:
+        data["time"] = time_value
+    return {"event": "status", "data": data}
 
 
 def publish_playback_status_once(detector, read_rpm, broadcast):
     rpm = read_rpm()
-    status = detector.sample(rpm)
-    if status is None:
+    message = detector.sample(rpm)
+    if message is None:
         return None
 
-    message = status_message(status)
     broadcast(message)
     return message
 

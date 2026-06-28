@@ -24,7 +24,13 @@ The backend SHALL consider the record playing only after RPM reaches or exceeds 
 - **WHEN** RPM has reached or exceeded `5500`
 - **AND** `9726` milliseconds has elapsed since the threshold crossing
 - **THEN** the backend SHALL consider the record playing
-- **AND** the backend SHALL emit one play status event
+- **AND** the backend SHALL emit a play status event with elapsed playback time `00:00`
+
+#### Scenario: Active playback emits elapsed time updates
+- **WHEN** the backend considers the record playing
+- **AND** sampled RPM values remain at or above `5500`
+- **AND** the elapsed playback second advances
+- **THEN** the backend SHALL emit a play status event with `time` formatted as zero-padded `MM:SS`
 
 #### Scenario: RPM drops before tonearm delay completes
 - **WHEN** RPM reaches or exceeds `5500`
@@ -48,12 +54,12 @@ The backend SHALL consider the record stopped playing when RPM falls below `SPIN
 - **AND** the backend SHALL NOT emit a stop status event
 
 ### Requirement: Status event deduplication
-The backend SHALL emit play and stop status events only when the detected playback state changes.
+The backend SHALL suppress duplicate play-time and stop status events while preserving elapsed playback time updates.
 
-#### Scenario: Repeated playing samples do not repeat play
-- **WHEN** the backend has already emitted a play status event for the current playback interval
-- **AND** later sampled RPM values remain at or above `5500`
-- **THEN** the backend SHALL NOT emit additional play status events
+#### Scenario: Repeated playing samples in the same second do not repeat play
+- **WHEN** the backend has already emitted a play status event for the current elapsed playback second
+- **AND** later sampled RPM values remain at or above `5500` in that same elapsed second
+- **THEN** the backend SHALL NOT emit an additional play status event for that same second
 
 #### Scenario: Repeated stopped samples do not repeat stop
 - **WHEN** the backend has already emitted a stop status event for the current playback interval
