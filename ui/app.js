@@ -1211,21 +1211,11 @@ function connectWebSocket() {
                 });
                 break;
             case "status":
-                console.info("[now-spinning] websocket status received", msgData, {
-                    mode: state.mode,
-                    hash: location.hash,
-                });
                 if (!location.hash) {
                     if (msgData.status === "play") {
                         var wasPlaying = state.mode === "play";
                         state.playbackTime = getPlaybackTimeValue(msgData.time);
                         state.boardlessElapsedSeconds = state.playbackTime ? parseDurationSeconds(state.playbackTime) : null;
-                        console.info("[now-spinning] status play parsed", {
-                            time: msgData.time,
-                            playbackTime: state.playbackTime,
-                            boardlessElapsedSeconds: state.boardlessElapsedSeconds,
-                            wasPlaying: wasPlaying,
-                        });
 
                         if (!wasPlaying) {
                             setMode("play");
@@ -1233,30 +1223,12 @@ function connectWebSocket() {
                         }
                         refreshBoardlessPlaybackSelection();
                         render();
-                        console.info("[now-spinning] status play applied", {
-                            mode: state.mode,
-                            playbackTime: state.playbackTime,
-                            currentRecordId: state.currentRecordId,
-                        });
                     } else if (msgData.status === "stop" && state.mode === "play") {
-                        console.info("[now-spinning] status stop applied from play", {
-                            playbackTime: state.playbackTime,
-                            boardlessElapsedSeconds: state.boardlessElapsedSeconds,
-                        });
                         advanceSideIfStoppedNearCurrentSideEnd();
                         state.currentTrackIndex = 0;
                         setMode("standby");
                         render();
-                    } else {
-                        console.info("[now-spinning] status ignored for current mode", {
-                            status: msgData.status,
-                            mode: state.mode,
-                        });
                     }
-                } else {
-                    console.info("[now-spinning] status ignored because URL hash is set", {
-                        hash: location.hash,
-                    });
                 }
                 break;
             case "temperature_c":

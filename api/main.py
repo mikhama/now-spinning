@@ -163,8 +163,6 @@ def render_index_html():
 
 def broadcast_message(message, *, exclude_client=None):
     payload = json.dumps(message)
-    if message.get("event") == "status":
-        app.logger.info("Broadcasting status message: %s", payload)
     update_runtime_state(message)
     for client in list(connected_clients):
         if client is exclude_client:
