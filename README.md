@@ -106,9 +106,16 @@ or (I2C)
 python -m exp.nfc.nfc_debug_i2c
 ```
 
-To check IR sensor:
+To check IR sensor and get RPM treshold:
 ```
 python -m exp.platter_spinning
+```
+
+To calibrate platter spinning detection and tonearm delay in milliseconds, edit
+`SPINNING_RPM_THRESHOLD` in `exp/spinning_detection_calibration.py`, then run on
+the Raspberry Pi with the platter sensor connected:
+```bash
+python -m exp.spinning_detection_calibration
 ```
 
 ## TODOs:

@@ -14,7 +14,7 @@ def pulse():
 sensor.when_activated = pulse
 
 while True:
-    time.sleep(5)
+    time.sleep(1)
     elapsed = time.time() - start_time
     rpm = (count / elapsed) * 60
     print(f"Estimated RPM: {rpm}")
