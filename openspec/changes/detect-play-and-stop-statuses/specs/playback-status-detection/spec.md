@@ -8,7 +8,7 @@ The backend SHALL sample platter RPM once per second while playback status detec
 - **THEN** the backend SHALL request a new RPM sample every one second
 
 ### Requirement: Play detection after threshold and tonearm delay
-The backend SHALL consider the record playing only after RPM reaches or exceeds `SPINNING_RPM_THRESHOLD = 4500` and `TONEARM_DELAY_AUTO = 9726` milliseconds has elapsed since that threshold crossing.
+The backend SHALL consider the record playing only after RPM reaches or exceeds `SPINNING_RPM_THRESHOLD = 4500` and `TONEARM_DELAY_AUTO = 10713` milliseconds has elapsed since that threshold crossing.
 
 #### Scenario: RPM below threshold is not playing
 - **WHEN** a sampled RPM value is below `4500`
@@ -18,11 +18,11 @@ The backend SHALL consider the record playing only after RPM reaches or exceeds 
 #### Scenario: Threshold crossing starts tonearm delay
 - **WHEN** a sampled RPM value reaches or exceeds `4500`
 - **THEN** the backend SHALL start the tonearm delay timer for that threshold crossing
-- **AND** the backend SHALL NOT emit a play status event before `9726` milliseconds has elapsed
+- **AND** the backend SHALL NOT emit a play status event before `10713` milliseconds has elapsed
 
 #### Scenario: Tonearm delay completion starts playback
 - **WHEN** RPM has reached or exceeded `4500`
-- **AND** `9726` milliseconds has elapsed since the threshold crossing
+- **AND** `10713` milliseconds has elapsed since the threshold crossing
 - **THEN** the backend SHALL consider the record playing
 - **AND** the backend SHALL emit a play status event with elapsed playback time `00:00`
 
@@ -34,7 +34,7 @@ The backend SHALL consider the record playing only after RPM reaches or exceeds 
 
 #### Scenario: RPM drops before tonearm delay completes
 - **WHEN** RPM reaches or exceeds `4500`
-- **AND** RPM later falls below `4500` before `9726` milliseconds has elapsed
+- **AND** RPM later falls below `4500` before `10713` milliseconds has elapsed
 - **THEN** the backend SHALL reset the pending tonearm delay
 - **AND** the backend SHALL NOT emit a play status event for that incomplete threshold crossing
 

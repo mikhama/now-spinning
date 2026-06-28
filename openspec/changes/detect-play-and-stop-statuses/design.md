@@ -9,7 +9,7 @@ RPM measurement currently exists only in experimental scripts under `exp/`, incl
 **Goals:**
 
 - Poll platter RPM once per second from the backend runtime.
-- Emit `status: "play"` with zero-padded `MM:SS` playback time only after RPM reaches `4500` and `9726` milliseconds have elapsed from that threshold crossing.
+- Emit `status: "play"` with zero-padded `MM:SS` playback time only after RPM reaches `4500` and `10713` milliseconds have elapsed from that threshold crossing.
 - Continue emitting `status: "play"` while playback remains active when the displayed elapsed playback second changes.
 - Emit a single `status: "stop"` event when RPM falls below `4500` after playback was considered active.
 - Keep the existing WebSocket/event payload format unchanged.

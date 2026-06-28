@@ -5,7 +5,7 @@ The backend currently does not derive real playback start and stop statuses from
 ## What Changes
 
 - Add backend RPM polling every second.
-- Detect playback start only after RPM reaches `SPINNING_RPM_THRESHOLD = 4500` and remains in the post-threshold tonearm delay window until `TONEARM_DELAY_AUTO = 9726` milliseconds has elapsed.
+- Detect playback start only after RPM reaches `SPINNING_RPM_THRESHOLD = 4500` and remains in the post-threshold tonearm delay window until `TONEARM_DELAY_AUTO = 10713` milliseconds has elapsed.
 - Detect playback stop when RPM falls below `SPINNING_RPM_THRESHOLD = 4500`.
 - Broadcast detected play and stop status events to connected frontend clients using the same event format already consumed by the UI.
 - Avoid repeatedly sending the same play or stop status while the detected playback state is unchanged.

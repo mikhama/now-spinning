@@ -45,9 +45,9 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
         detector = PlaybackStatusDetector()
 
         self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=0))
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=9.725))
+        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=10.712))
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD, now=9.726),
+            detector.sample(SPINNING_RPM_THRESHOLD, now=10.713),
             self.status_message("play", "00:00"),
         )
         self.assertEqual(detector.state, PlaybackStatusDetector.PLAYING)
@@ -59,9 +59,9 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
         self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD - 1, now=5))
         self.assertEqual(detector.state, PlaybackStatusDetector.STOPPED)
         self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=8))
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=17))
+        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=18))
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD, now=17.726000000000003),
+            detector.sample(SPINNING_RPM_THRESHOLD, now=18.713),
             self.status_message("play", "00:00"),
         )
 
@@ -70,7 +70,7 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
 
         detector.sample(SPINNING_RPM_THRESHOLD, now=0)
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD, now=9.726),
+            detector.sample(SPINNING_RPM_THRESHOLD, now=10.713),
             self.status_message("play", "00:00"),
         )
         self.assertEqual(
@@ -84,16 +84,16 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
 
         detector.sample(SPINNING_RPM_THRESHOLD, now=0)
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD, now=9.726),
+            detector.sample(SPINNING_RPM_THRESHOLD, now=10.713),
             self.status_message("play", "00:00"),
         )
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD + 100, now=10.2))
+        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD + 100, now=11.2))
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD + 100, now=10.8),
+            detector.sample(SPINNING_RPM_THRESHOLD + 100, now=11.8),
             self.status_message("play", "00:01"),
         )
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD + 100, now=71),
+            detector.sample(SPINNING_RPM_THRESHOLD + 100, now=72),
             self.status_message("play", "01:01"),
         )
 
@@ -101,7 +101,7 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
         detector = PlaybackStatusDetector()
 
         detector.sample(SPINNING_RPM_THRESHOLD, now=0)
-        detector.sample(SPINNING_RPM_THRESHOLD, now=9.726)
+        detector.sample(SPINNING_RPM_THRESHOLD, now=10.713)
         self.assertEqual(
             detector.sample(SPINNING_RPM_THRESHOLD - 1, now=12),
             self.status_message("stop"),
