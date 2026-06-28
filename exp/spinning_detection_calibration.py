@@ -4,7 +4,7 @@ import time
 
 
 GPIO_PIN = 24
-SAMPLE_INTERVAL_SECONDS = 5
+SAMPLE_INTERVAL_SECONDS = 1
 
 # Edit this before running on the turntable hardware.
 SPINNING_RPM_THRESHOLD = 5500
