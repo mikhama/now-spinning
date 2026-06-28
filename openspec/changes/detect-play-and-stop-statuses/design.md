@@ -2,16 +2,16 @@
 
 The Flask backend already broadcasts frontend events through `broadcast_message`, stores the latest runtime status in `runtime_state`, and starts a daemon temperature publisher from `api/main.py`. Boardless/manual events use the same message shape the UI already consumes: `{"event": "status", "data": {"status": "play", "time": "00:01"}}` and `{"event": "status", "data": {"status": "stop"}}`.
 
-RPM measurement currently exists only in experimental scripts under `exp/`, including the calibrated constants `SPINNING_RPM_THRESHOLD = 5500` and a one-second sample interval. The runtime backend needs a hardware-aware event producer that reuses the established broadcast path without changing the frontend contract.
+RPM measurement currently exists only in experimental scripts under `exp/`, including the calibrated constants `SPINNING_RPM_THRESHOLD = 4500` and a one-second sample interval. The runtime backend needs a hardware-aware event producer that reuses the established broadcast path without changing the frontend contract.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
 - Poll platter RPM once per second from the backend runtime.
-- Emit `status: "play"` with zero-padded `MM:SS` playback time only after RPM reaches `5500` and `9726` milliseconds have elapsed from that threshold crossing.
+- Emit `status: "play"` with zero-padded `MM:SS` playback time only after RPM reaches `4500` and `9726` milliseconds have elapsed from that threshold crossing.
 - Continue emitting `status: "play"` while playback remains active when the displayed elapsed playback second changes.
-- Emit a single `status: "stop"` event when RPM falls below `5500` after playback was considered active.
+- Emit a single `status: "stop"` event when RPM falls below `4500` after playback was considered active.
 - Keep the existing WebSocket/event payload format unchanged.
 - Make the detection state machine unit-testable without GPIO hardware.
 

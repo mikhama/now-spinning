@@ -1,6 +1,6 @@
 ## 1. Detector Core
 
-- [x] 1.1 Create a backend playback status module with `SPINNING_RPM_THRESHOLD = 5500`, `TONEARM_DELAY_AUTO = 9726`, and `SAMPLE_INTERVAL_SECONDS = 1`.
+- [x] 1.1 Create a backend playback status module with `SPINNING_RPM_THRESHOLD = 4500`, `TONEARM_DELAY_AUTO = 9726`, and `SAMPLE_INTERVAL_SECONDS = 1`.
 - [x] 1.2 Implement a testable detector state machine for stopped, threshold-reached, and playing states.
 - [x] 1.3 Emit a play message with zero-padded `MM:SS` time when RPM remains at or above the threshold until the tonearm delay elapses.
 - [x] 1.4 Reset pending threshold timing without emitting play or stop when RPM falls below threshold before the tonearm delay elapses.
