@@ -8,6 +8,7 @@ from flask import Flask, Response, jsonify, request
 from flask_sock import Sock
 
 from api.mock_data import RECORDS, STYLI
+from api.nfc_coordinator import NfcCoordinator
 from api.playback_status import run_playback_status_publisher
 
 app = Flask(__name__, static_folder="../ui", static_url_path="")
@@ -21,6 +22,8 @@ temperature_publisher_started = False
 temperature_publisher_lock = threading.Lock()
 playback_status_publisher_started = False
 playback_status_publisher_lock = threading.Lock()
+nfc_coordinator_started = False
+nfc_coordinator_lock = threading.Lock()
 
 # Runtime event state used to seed newly connected clients without fabricating
 # a default record.
@@ -171,6 +174,35 @@ def broadcast_message(message, *, exclude_client=None):
             client.send(payload)
         except Exception:
             connected_clients.discard(client)
+
+
+def persist_link_success(record_id):
+    from api.services.db.database import init_db, mark_record_linked
+
+    init_db()
+    return mark_record_linked(record_id)
+
+
+nfc_coordinator = NfcCoordinator(
+    broadcast=broadcast_message,
+    persist_link_success=persist_link_success,
+    logger=app.logger,
+)
+
+
+def start_nfc_coordinator():
+    global nfc_coordinator_started
+    if is_boardless_mode():
+        return False
+
+    with nfc_coordinator_lock:
+        if nfc_coordinator_started:
+            return False
+        nfc_coordinator_started = True
+
+    thread = threading.Thread(target=nfc_coordinator.run_forever, daemon=True)
+    thread.start()
+    return True
 
 
 @app.route("/")
@@ -360,13 +392,38 @@ def post_event():
         if not record_id:
             return jsonify({"error": "Missing record_id"}), 400
 
-        from api.services.db.database import init_db, mark_record_linked
-
-        init_db()
-        if not mark_record_linked(record_id):
+        if not persist_link_success(record_id):
             return jsonify({"error": "Not found"}), 404
 
     broadcast_message(data)
+    return jsonify({"success": True})
+
+
+@app.post("/nfc/mode")
+def post_nfc_mode():
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    mode = data.get("mode")
+    if not mode:
+        return jsonify({"error": "Missing mode"}), 400
+
+    nfc_coordinator.set_mode(mode)
+    return jsonify({"success": True})
+
+
+@app.post("/nfc/write")
+def post_nfc_write():
+    data = request.get_json(silent=True)
+    if data is None:
+        return jsonify({"error": "Invalid JSON"}), 400
+
+    record_id = data.get("record_id")
+    if not record_id:
+        return jsonify({"error": "Missing record_id"}), 400
+
+    nfc_coordinator.request_write(record_id, mode=data.get("mode"))
     return jsonify({"success": True})
 
 
@@ -401,4 +458,5 @@ def ws(ws):
 if __name__ == "__main__":
     start_temperature_publisher()
     start_playback_status_publisher()
+    start_nfc_coordinator()
     app.run(host="0.0.0.0", port=5000)

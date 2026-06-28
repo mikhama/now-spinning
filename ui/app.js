@@ -31,6 +31,8 @@ var lastRendered = {
     section: null,
 };
 
+var lastReportedBackendMode = null;
+
 // ---------------------------------------------------------------------------
 // Mode switching
 // ---------------------------------------------------------------------------
@@ -58,6 +60,30 @@ function nextMode() {
 function clearPendingLink() {
     state.pendingLinkRecordId = null;
     state.pendingLinkMode = null;
+}
+
+function postJson(url, data) {
+    return fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+    });
+}
+
+function notifyBackendMode() {
+    var backendMode = state.mode === "standby" ? "standby" : state.mode;
+    if (backendMode === lastReportedBackendMode) return;
+
+    lastReportedBackendMode = backendMode;
+    postJson("/nfc/mode", { mode: backendMode }).catch(function (e) {
+        console.error("Failed to report NFC mode:", e);
+    });
+}
+
+function requestNfcWrite(recordId, mode) {
+    return postJson("/nfc/write", { record_id: recordId, mode: mode }).catch(function (e) {
+        console.error("Failed to request NFC write:", e);
+    });
 }
 
 function requestKioskExit(event) {
@@ -143,6 +169,7 @@ function setMode(nextMode) {
         state.playbackTime = null;
         resetBoardlessPlaybackTiming();
     }
+    notifyBackendMode();
 }
 
 function activateRecord(recordId, options) {
@@ -1036,6 +1063,7 @@ function linkRecord() {
     state.pendingLinkMode = "link";
     state.linkError = false;
     render();
+    requestNfcWrite(record.id, "link");
 }
 
 function reLinkRecord() {
@@ -1046,6 +1074,7 @@ function reLinkRecord() {
     state.pendingLinkMode = "re-link";
     state.linkError = false;
     render();
+    requestNfcWrite(record.id, "re-link");
 }
 
 function resetStylus() {
@@ -1335,6 +1364,7 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!applyHash()) {
             render();
         }
+        notifyBackendMode();
         connectWebSocket();
 
         // Recompute overflow state after fonts finish loading without rewriting text.

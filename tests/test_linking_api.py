@@ -18,6 +18,7 @@ class LinkingApiTestCase(unittest.TestCase):
         self.original_runtime_state = deepcopy(runtime_state)
         self.original_temperature_publisher_started = api_main.temperature_publisher_started
         self.original_playback_status_publisher_started = api_main.playback_status_publisher_started
+        self.original_nfc_coordinator_started = api_main.nfc_coordinator_started
         database.DB_PATH = os.path.join(self.tmpdir.name, "now-spinning.db")
         database.init_db()
         self.client = app.test_client()
@@ -28,6 +29,7 @@ class LinkingApiTestCase(unittest.TestCase):
         runtime_state.update(self.original_runtime_state)
         api_main.temperature_publisher_started = self.original_temperature_publisher_started
         api_main.playback_status_publisher_started = self.original_playback_status_publisher_started
+        api_main.nfc_coordinator_started = self.original_nfc_coordinator_started
         self.tmpdir.cleanup()
 
     def insert_record(self, record_id="1", linked=0):
@@ -198,6 +200,17 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertNotIn('fetch("/temperature")', source)
         self.assertIn('case "temperature_c":', source)
 
+    def test_frontend_reports_mode_and_requests_nfc_writes(self):
+        app_js = Path(__file__).resolve().parents[1] / "ui" / "app.js"
+        source = app_js.read_text()
+        api_source = Path(__file__).resolve().parents[1].joinpath("api/main.py").read_text()
+
+        self.assertIn('postJson("/nfc/mode", { mode: backendMode })', source)
+        self.assertIn('postJson("/nfc/write", { record_id: recordId, mode: mode })', source)
+        self.assertIn('requestNfcWrite(record.id, "link")', source)
+        self.assertIn('requestNfcWrite(record.id, "re-link")', source)
+        self.assertIn('@app.post("/events")', api_source)
+
     def test_stylus_reset_endpoint_returns_404_without_changing_data(self):
         self.insert_stylus("1", distance_hours=89.6)
 
@@ -240,6 +253,47 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json(), {"success": True})
         broadcast_message.assert_called_once_with(payload)
+
+    def test_nfc_mode_endpoint_updates_coordinator(self):
+        with patch.object(api_main.nfc_coordinator, "set_mode") as set_mode:
+            response = self.client.post("/nfc/mode", json={"mode": "standby"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"success": True})
+        set_mode.assert_called_once_with("standby")
+
+    def test_nfc_write_endpoint_requests_record_write(self):
+        with patch.object(api_main.nfc_coordinator, "request_write") as request_write:
+            response = self.client.post("/nfc/write", json={"record_id": "abc-123", "mode": "re-link"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"success": True})
+        request_write.assert_called_once_with("abc-123", mode="re-link")
+
+    def test_nfc_endpoints_validate_payloads(self):
+        missing_mode = self.client.post("/nfc/mode", json={})
+        missing_record = self.client.post("/nfc/write", json={})
+
+        self.assertEqual(missing_mode.status_code, 400)
+        self.assertEqual(missing_record.status_code, 400)
+
+    def test_start_nfc_coordinator_skips_boardless_and_starts_once(self):
+        api_main.nfc_coordinator_started = False
+
+        with patch.dict(os.environ, {"BOARDLESS_MODE": "true"}):
+            with patch("api.main.threading.Thread") as thread_class:
+                self.assertFalse(api_main.start_nfc_coordinator())
+                thread_class.assert_not_called()
+
+        with patch.dict(os.environ, {}, clear=True):
+            with patch("api.main.threading.Thread") as thread_class:
+                self.assertTrue(api_main.start_nfc_coordinator())
+                self.assertFalse(api_main.start_nfc_coordinator())
+
+        thread_class.assert_called_once()
+        self.assertEqual(thread_class.call_args.kwargs["target"], api_main.nfc_coordinator.run_forever)
+        self.assertTrue(thread_class.call_args.kwargs["daemon"])
+        thread_class.return_value.start.assert_called_once_with()
 
     def test_detected_status_messages_update_runtime_state(self):
         api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:01"}})

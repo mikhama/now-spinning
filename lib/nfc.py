@@ -10,6 +10,10 @@ class NfcError(Exception):
     """Raised on NFC read/write failure."""
 
 
+class NfcNoCard(NfcError):
+    """Raised when a read/write attempt times out before detecting a card."""
+
+
 # ── PN532 hardware backend ────────────────────────────────────────────────────
 
 class Pn532Backend:
@@ -23,10 +27,10 @@ class Pn532Backend:
             conn = 6                # I2C bus number
         self._nfc = PN532(conn)
 
-    def read(self) -> str:
-        card = self._nfc.wait_for_card(timeout=30)
+    def read(self, timeout: float = 30) -> str:
+        card = self._nfc.wait_for_card(timeout=timeout)
         if not card:
-            raise NfcError("No card detected")
+            raise NfcNoCard("No card detected")
         card_type = self._nfc.identify_card(card)
         if "classic" in card_type:
             text = self._read_classic(card["uid"])
@@ -54,7 +58,7 @@ class Pn532Backend:
                 break
             data = self._nfc.classic_read(block)
             if not data:
-                break
+                return None
             raw.extend(data)
             block += 1
         return raw[1 : 1 + text_len].decode("utf-8", errors="replace")
@@ -71,7 +75,7 @@ class Pn532Backend:
         while len(raw) < text_len + 1:
             data = self._nfc.ntag_read(page)
             if not data:
-                break
+                return None
             raw.extend(data)
             page += 4
         return raw[1 : 1 + text_len].decode("utf-8", errors="replace")
@@ -123,7 +127,7 @@ class Pn532Backend:
 
 class BoardlessBackend:
 
-    def read(self) -> str:
+    def read(self, timeout: float = 30) -> str:
         text = input("[BOARDLESS] Enter simulated card text (empty to cancel): ").strip()
         if not text:
             raise NfcError("No input provided (read cancelled)")
@@ -153,6 +157,10 @@ def _get_backend():
 
 def nfc_read() -> str:
     return _get_backend().read()
+
+
+def nfc_read_once(timeout: float = 1) -> str:
+    return _get_backend().read(timeout=timeout)
 
 
 def nfc_write(text: str) -> None:
