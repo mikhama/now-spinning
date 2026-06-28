@@ -107,7 +107,7 @@ python -m exp.nfc.nfc_debug_i2c
 ```
 
 To check IR sensor and get RPM treshold:
-```
+```bash
 python -m exp.platter_spinning
 ```
 

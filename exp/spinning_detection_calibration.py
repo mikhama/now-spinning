@@ -7,7 +7,7 @@ GPIO_PIN = 24
 SAMPLE_INTERVAL_SECONDS = 5
 
 # Edit this before running on the turntable hardware.
-SPINNING_RPM_THRESHOLD = 1.0
+SPINNING_RPM_THRESHOLD = 5500
 
 
 class PulseCounter:
