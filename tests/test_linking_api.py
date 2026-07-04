@@ -1,5 +1,6 @@
 import json
 import os
+import signal
 from pathlib import Path
 import tempfile
 import unittest
@@ -19,8 +20,12 @@ class LinkingApiTestCase(unittest.TestCase):
         self.original_temperature_publisher_started = api_main.temperature_publisher_started
         self.original_playback_status_publisher_started = api_main.playback_status_publisher_started
         self.original_nfc_coordinator_started = api_main.nfc_coordinator_started
+        self.original_stylus_hours_tracker = api_main.stylus_hours_tracker
+        self.original_shutdown_hooks_installed = api_main.shutdown_hooks_installed
+        self.original_previous_signal_handlers = dict(api_main.previous_signal_handlers)
         database.DB_PATH = os.path.join(self.tmpdir.name, "now-spinning.db")
         database.init_db()
+        api_main.stylus_hours_tracker = api_main.create_stylus_hours_tracker()
         self.client = app.test_client()
 
     def tearDown(self):
@@ -30,6 +35,9 @@ class LinkingApiTestCase(unittest.TestCase):
         api_main.temperature_publisher_started = self.original_temperature_publisher_started
         api_main.playback_status_publisher_started = self.original_playback_status_publisher_started
         api_main.nfc_coordinator_started = self.original_nfc_coordinator_started
+        api_main.stylus_hours_tracker = self.original_stylus_hours_tracker
+        api_main.shutdown_hooks_installed = self.original_shutdown_hooks_installed
+        api_main.previous_signal_handlers = self.original_previous_signal_handlers
         self.tmpdir.cleanup()
 
     def insert_record(self, record_id="1", linked=0):
@@ -51,7 +59,7 @@ class LinkingApiTestCase(unittest.TestCase):
         finally:
             conn.close()
 
-    def insert_stylus(self, stylus_id="1", distance_hours=89.6):
+    def insert_stylus(self, stylus_id="1", distance_hours=89.6, active=1):
         conn = database._get_connection()
         try:
             conn.execute(
@@ -59,7 +67,7 @@ class LinkingApiTestCase(unittest.TestCase):
                 INSERT INTO stylus (id, name, distance_hours, capacity_min_hours, capacity_max_hours, active)
                 VALUES (?, ?, ?, ?, ?, ?)
                 """,
-                (stylus_id, "Stylus " + stylus_id, distance_hours, 500, 1000, 1),
+                (stylus_id, "Stylus " + stylus_id, distance_hours, 500, 1000, active),
             )
             conn.commit()
         finally:
@@ -88,6 +96,45 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertTrue(database.is_record_linked("2"))
         self.assertFalse(database.is_record_linked("999"))
 
+    def test_active_stylus_lookup_returns_active_row_or_none(self):
+        self.assertIsNone(database.get_active_stylus_hours())
+
+        self.insert_stylus("1", distance_hours=10.0, active=0)
+        self.insert_stylus("2", distance_hours=25.5, active=1)
+
+        self.assertEqual(database.get_active_stylus_hours(), {"id": "2", "hours": 25.5})
+
+    def test_increment_stylus_hours_updates_existing_rows_only(self):
+        self.insert_stylus("1", distance_hours=100.0)
+
+        self.assertTrue(database.increment_stylus_hours("1", 0.25))
+        self.assertEqual(self.get_stylus_hours("1"), 100.25)
+        self.assertFalse(database.increment_stylus_hours("999", 0.25))
+        self.assertEqual(self.get_stylus_hours("1"), 100.25)
+
+    def test_stylus_hour_connection_uses_wal_and_full_synchronous(self):
+        conn = database._get_connection()
+        try:
+            journal_mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+            synchronous = conn.execute("PRAGMA synchronous").fetchone()[0]
+        finally:
+            conn.close()
+
+        self.assertEqual(journal_mode.lower(), "wal")
+        self.assertEqual(synchronous, 2)
+
+    def test_committed_stylus_increment_is_visible_from_new_connection(self):
+        self.insert_stylus("1", distance_hours=100.0)
+
+        self.assertTrue(database.increment_stylus_hours("1", 0.25))
+
+        conn = database._get_connection()
+        try:
+            row = conn.execute("SELECT distance_hours FROM stylus WHERE id = ?", ("1",)).fetchone()
+        finally:
+            conn.close()
+        self.assertEqual(row[0], 100.25)
+
     def test_records_link_endpoint_persists_or_returns_404(self):
         self.insert_record("1", linked=0)
 
@@ -101,6 +148,8 @@ class LinkingApiTestCase(unittest.TestCase):
 
     def test_stylus_reset_endpoint_persists_zero_hours(self):
         self.insert_stylus("1", distance_hours=89.6)
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:00"}})
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "04:00"}})
 
         response = self.client.post("/styli/1/reset")
 
@@ -108,6 +157,7 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertEqual(response.get_json(), {"success": True})
         self.assertEqual(self.get_stylus_hours("1"), 0)
         self.assertEqual(runtime_state["stylus_hours"]["1"], 0)
+        self.assertEqual(api_main.stylus_hours_tracker.pending_seconds, 0)
 
     def test_styli_endpoint_reads_persisted_hours_after_reset(self):
         self.insert_stylus("1", distance_hours=89.6)
@@ -318,6 +368,7 @@ class LinkingApiTestCase(unittest.TestCase):
         thread_class.return_value.start.assert_called_once_with()
 
     def test_detected_status_messages_update_runtime_state(self):
+        self.insert_stylus("1", distance_hours=100.0)
         api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:01"}})
         self.assertEqual(runtime_state["status"], "play")
         self.assertEqual(runtime_state["status_time"], "00:01")
@@ -325,6 +376,25 @@ class LinkingApiTestCase(unittest.TestCase):
         api_main.broadcast_message({"event": "status", "data": {"status": "stop"}})
         self.assertEqual(runtime_state["status"], "stop")
         self.assertIsNone(runtime_state["status_time"])
+
+    def test_status_broadcast_emits_stylus_hours_runtime_state(self):
+        self.insert_stylus("1", distance_hours=100.0)
+
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:00"}})
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:01"}})
+
+        self.assertAlmostEqual(runtime_state["stylus_hours"]["1"], 100.0002778)
+
+    def test_initial_events_include_latest_runtime_stylus_hours(self):
+        self.insert_stylus("1", distance_hours=100.0)
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:00"}})
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:01"}})
+
+        events = build_initial_events()
+
+        stylus_events = [event for event in events if event["event"] == "stylus_hours"]
+        self.assertEqual(stylus_events[0]["data"]["stylus_id"], "1")
+        self.assertAlmostEqual(stylus_events[0]["data"]["hours"], 100.0002778)
 
     def test_boardless_mode_helper_matches_true_case_insensitively(self):
         for value in ("true", "TRUE", "TrUe"):
@@ -354,12 +424,29 @@ class LinkingApiTestCase(unittest.TestCase):
 
     def test_kiosk_exit_rejects_when_shutdown_not_enabled(self):
         with patch.dict(os.environ, {}, clear=True):
-            with patch("api.main.threading.Timer") as timer:
-                response = self.client.post("/kiosk/exit")
+            with patch("api.main.flush_pending_stylus_usage") as flush_pending:
+                with patch("api.main.threading.Timer") as timer:
+                    response = self.client.post("/kiosk/exit")
 
         self.assertEqual(response.status_code, 403)
         self.assertEqual(response.get_json(), {"error": "Kiosk shutdown is disabled"})
+        flush_pending.assert_not_called()
         timer.assert_not_called()
+
+    def test_kiosk_exit_flushes_pending_usage_when_enabled(self):
+        self.insert_stylus("1", distance_hours=100.0)
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:00"}})
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "04:00"}})
+
+        with patch.dict(os.environ, {"KIOSK_SHUTDOWN_ENABLED": "TRUE"}):
+            with patch("api.main.threading.Timer") as timer:
+                response = self.client.post("/kiosk/exit")
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.get_json(), {"success": True})
+        self.assertAlmostEqual(self.get_stylus_hours("1"), 100 + (240 / 3600))
+        self.assertEqual(api_main.stylus_hours_tracker.pending_seconds, 0)
+        timer.assert_called_once()
 
     def test_kiosk_exit_schedules_parent_termination_when_enabled(self):
         with patch.dict(os.environ, {"KIOSK_SHUTDOWN_ENABLED": "TRUE"}):
@@ -373,6 +460,30 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertEqual(delay, 0.1)
         self.assertEqual(callback.__name__, "terminate_kiosk_runner")
         timer.return_value.start.assert_called_once_with()
+
+    def test_shutdown_cleanup_flushes_pending_stylus_usage(self):
+        self.insert_stylus("1", distance_hours=100.0)
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:00"}})
+        api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "04:00"}})
+
+        api_main.flush_pending_stylus_usage()
+
+        self.assertAlmostEqual(self.get_stylus_hours("1"), 100 + (240 / 3600))
+        self.assertEqual(api_main.stylus_hours_tracker.pending_seconds, 0)
+
+    def test_install_shutdown_hooks_registers_exit_and_signal_cleanup(self):
+        api_main.shutdown_hooks_installed = False
+        api_main.previous_signal_handlers = {}
+
+        with patch("api.main.atexit.register") as register:
+            with patch("api.main.signal.getsignal", return_value=signal.SIG_DFL) as getsignal:
+                with patch("api.main.signal.signal") as signal_func:
+                    self.assertTrue(api_main.install_shutdown_hooks())
+                    self.assertFalse(api_main.install_shutdown_hooks())
+
+        register.assert_called_once_with(api_main.flush_pending_stylus_usage)
+        self.assertEqual(getsignal.call_count, 2)
+        self.assertEqual(signal_func.call_count, 2)
 
 
 if __name__ == "__main__":

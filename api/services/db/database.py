@@ -8,6 +8,7 @@ def _get_connection():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=FULL")
     return conn
 
 
@@ -124,6 +125,37 @@ def get_all_styli():
             """
         ).fetchall()
         return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def get_active_stylus_hours():
+    conn = _get_connection()
+    try:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT id, distance_hours AS hours
+            FROM stylus
+            WHERE active = 1
+            ORDER BY id
+            LIMIT 1
+            """
+        ).fetchone()
+        return dict(row) if row else None
+    finally:
+        conn.close()
+
+
+def increment_stylus_hours(stylus_id, delta_hours):
+    conn = _get_connection()
+    try:
+        cursor = conn.execute(
+            "UPDATE stylus SET distance_hours = distance_hours + ? WHERE id = ?",
+            (delta_hours, str(stylus_id)),
+        )
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         conn.close()
 

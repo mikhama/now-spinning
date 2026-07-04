@@ -1,3 +1,4 @@
+import atexit
 import json
 import os
 import signal
@@ -10,6 +11,7 @@ from flask_sock import Sock
 from api.mock_data import RECORDS, STYLI
 from api.nfc_coordinator import NfcCoordinator
 from api.playback_status import run_playback_status_publisher
+from api.stylus_hours import StylusHoursTracker
 
 app = Flask(__name__, static_folder="../ui", static_url_path="")
 sock = Sock(app)
@@ -24,6 +26,8 @@ playback_status_publisher_started = False
 playback_status_publisher_lock = threading.Lock()
 nfc_coordinator_started = False
 nfc_coordinator_lock = threading.Lock()
+shutdown_hooks_installed = False
+previous_signal_handlers = {}
 
 # Runtime event state used to seed newly connected clients without fabricating
 # a default record.
@@ -92,6 +96,27 @@ def is_boardless_mode():
 
 def is_kiosk_shutdown_enabled():
     return os.environ.get("KIOSK_SHUTDOWN_ENABLED", "").lower() == "true"
+
+
+def create_stylus_hours_tracker():
+    from api.services.db.database import get_active_stylus_hours, increment_stylus_hours, init_db
+
+    def get_active_stylus():
+        init_db()
+        return get_active_stylus_hours()
+
+    def increment(stylus_id, delta_hours):
+        init_db()
+        return increment_stylus_hours(stylus_id, delta_hours)
+
+    return StylusHoursTracker(
+        get_active_stylus=get_active_stylus,
+        increment_stylus_hours=increment,
+        logger=app.logger,
+    )
+
+
+stylus_hours_tracker = create_stylus_hours_tracker()
 
 
 def read_pi_temperature_c():
@@ -165,15 +190,19 @@ def render_index_html():
 
 
 def broadcast_message(message, *, exclude_client=None):
-    payload = json.dumps(message)
-    update_runtime_state(message)
-    for client in list(connected_clients):
-        if client is exclude_client:
-            continue
-        try:
-            client.send(payload)
-        except Exception:
-            connected_clients.discard(client)
+    messages = [message]
+    messages.extend(stylus_hours_tracker.process_message(message))
+
+    for outbound_message in messages:
+        payload = json.dumps(outbound_message)
+        update_runtime_state(outbound_message)
+        for client in list(connected_clients):
+            if client is exclude_client:
+                continue
+            try:
+                client.send(payload)
+            except Exception:
+                connected_clients.discard(client)
 
 
 def persist_link_success(record_id):
@@ -298,6 +327,7 @@ def reset_stylus(id):
     init_db()
     if not reset_stylus_hours(id):
         return jsonify({"error": "Not found"}), 404
+    stylus_hours_tracker.reset_stylus(id)
     runtime_state["stylus_hours"][str(id)] = 0
     return jsonify({"success": True})
 
@@ -378,8 +408,37 @@ def kiosk_exit():
     if not is_kiosk_shutdown_enabled():
         return jsonify({"error": "Kiosk shutdown is disabled"}), 403
 
+    flush_pending_stylus_usage()
     threading.Timer(0.1, terminate_kiosk_runner).start()
     return jsonify({"success": True})
+
+
+def flush_pending_stylus_usage():
+    stylus_hours_tracker.flush_pending()
+
+
+def shutdown_signal_handler(signum, frame):
+    flush_pending_stylus_usage()
+    previous_handler = previous_signal_handlers.get(signum)
+    if callable(previous_handler):
+        previous_handler(signum, frame)
+    elif signum == signal.SIGINT:
+        raise KeyboardInterrupt
+    else:
+        raise SystemExit(0)
+
+
+def install_shutdown_hooks():
+    global shutdown_hooks_installed
+    if shutdown_hooks_installed:
+        return False
+
+    atexit.register(flush_pending_stylus_usage)
+    for signum in (signal.SIGTERM, signal.SIGINT):
+        previous_signal_handlers[signum] = signal.getsignal(signum)
+        signal.signal(signum, shutdown_signal_handler)
+    shutdown_hooks_installed = True
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -464,6 +523,7 @@ def ws(ws):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    install_shutdown_hooks()
     start_temperature_publisher()
     start_playback_status_publisher()
     start_nfc_coordinator()
