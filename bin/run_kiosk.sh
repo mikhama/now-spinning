@@ -87,7 +87,7 @@ fi
 CHROMIUM_PROFILE_DIR=$(mktemp -d "${TMPDIR:-/tmp}/now-spinning-kiosk.XXXXXX")
 
 chromium \
-    --kiosk \
+    # --kiosk \
     --no-first-run \
     --disable-infobars \
     --password-store=basic \
