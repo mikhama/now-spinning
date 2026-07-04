@@ -167,17 +167,17 @@ class PN532:
 
     def wait_for_card(self, timeout=30):
         """Keep scanning until a card is found or timeout."""
-        print("Place card on reader...", flush=True)
+        # print("Place card on reader...", flush=True)
         deadline = time.time() + timeout
         while time.time() < deadline:
             card = self.read_passive_target(timeout=2)
             if card:
-                uid_hex = card['uid'].hex(':')
-                card_type = self.identify_card(card)
-                print(f"\n  UID:  {uid_hex}")
-                print(f"  ATQA: {card['atqa'].hex(':')}")
-                print(f"  SAK:  {card['sak']:#04x}")
-                print(f"  Type: {card_type}\n")
+                # uid_hex = card['uid'].hex(':')
+                # card_type = self.identify_card(card)
+                # print(f"\n  UID:  {uid_hex}")
+                # print(f"  ATQA: {card['atqa'].hex(':')}")
+                # print(f"  SAK:  {card['sak']:#04x}")
+                # print(f"  Type: {card_type}\n")
                 return card
             time.sleep(0.1)
         return None
