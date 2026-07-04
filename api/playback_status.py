@@ -126,13 +126,24 @@ def status_message(status, time_value=None):
 
 def publish_playback_status_once(detector, read_rpm, broadcast, logger=None):
     rpm = read_rpm()
+    rpm_threshold = getattr(detector, "rpm_threshold", SPINNING_RPM_THRESHOLD)
+    is_spinning = rpm >= rpm_threshold
+    if logger is not None:
+        logger.info(
+            "Playback sensor RPM sample: %.2f RPM (threshold %.2f, spinning=%s)",
+            rpm,
+            rpm_threshold,
+            is_spinning,
+        )
+
     message = detector.sample(rpm)
     if message is None:
         return None
 
     data = message.get("data") or {}
     if logger is not None and (data.get("status") == STATUS_STOP or data.get("time") == "00:00"):
-        logger.info("Playback status changed to %s at %.2f RPM", data.get("status"), rpm)
+        detected_event = "start" if data.get("status") == STATUS_PLAY else "stop"
+        logger.info("Playback status event sent: %s at %.2f RPM", detected_event, rpm)
 
     broadcast(message)
     return message

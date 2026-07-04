@@ -1,5 +1,6 @@
 import atexit
 import json
+import logging
 import os
 import signal
 import threading
@@ -14,6 +15,7 @@ from api.playback_status import run_playback_status_publisher
 from api.stylus_hours import StylusHoursTracker
 
 app = Flask(__name__, static_folder="../ui", static_url_path="")
+app.logger.setLevel(logging.INFO)
 sock = Sock(app)
 
 # Connected WebSocket clients for event broadcasting

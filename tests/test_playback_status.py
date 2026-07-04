@@ -124,7 +124,7 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
         self.assertEqual(message, expected)
         self.assertEqual(sent_messages, [expected])
 
-    def test_publish_playback_status_logs_only_play_stop_decision_rpm(self):
+    def test_publish_playback_status_logs_sensor_samples_and_start_stop_events(self):
         detector = PlaybackStatusDetector()
         detector.sample(SPINNING_RPM_THRESHOLD, now=0)
         logger = Mock()
@@ -153,9 +153,35 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
             logger=logger,
         )
 
-        self.assertEqual(logger.info.call_count, 2)
-        logger.info.assert_any_call("Playback status changed to %s at %.2f RPM", "play", SPINNING_RPM_THRESHOLD + 12.345)
-        logger.info.assert_any_call("Playback status changed to %s at %.2f RPM", "stop", SPINNING_RPM_THRESHOLD - 1.25)
+        self.assertEqual(logger.info.call_count, 5)
+        logger.info.assert_any_call(
+            "Playback sensor RPM sample: %.2f RPM (threshold %.2f, spinning=%s)",
+            SPINNING_RPM_THRESHOLD + 12.345,
+            SPINNING_RPM_THRESHOLD,
+            True,
+        )
+        logger.info.assert_any_call(
+            "Playback sensor RPM sample: %.2f RPM (threshold %.2f, spinning=%s)",
+            SPINNING_RPM_THRESHOLD + 20,
+            SPINNING_RPM_THRESHOLD,
+            True,
+        )
+        logger.info.assert_any_call(
+            "Playback sensor RPM sample: %.2f RPM (threshold %.2f, spinning=%s)",
+            SPINNING_RPM_THRESHOLD - 1.25,
+            SPINNING_RPM_THRESHOLD,
+            False,
+        )
+        logger.info.assert_any_call(
+            "Playback status event sent: %s at %.2f RPM",
+            "start",
+            SPINNING_RPM_THRESHOLD + 12.345,
+        )
+        logger.info.assert_any_call(
+            "Playback status event sent: %s at %.2f RPM",
+            "stop",
+            SPINNING_RPM_THRESHOLD - 1.25,
+        )
 
     def test_format_playback_time_returns_zero_padded_minutes_and_seconds(self):
         self.assertEqual(format_playback_time(0), "00:00")
