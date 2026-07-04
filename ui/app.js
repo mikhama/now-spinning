@@ -250,6 +250,11 @@ function getStylusHours(stylus) {
     return state.stylusHours[stylus.id] !== undefined ? state.stylusHours[stylus.id] : stylus.hours;
 }
 
+function formatStylusHours(hours) {
+    var value = Number(hours);
+    return Number.isFinite(value) ? value.toFixed(2) : "0.00";
+}
+
 function getBarFillRatio(hours, capacityMax) {
     return Math.min(hours / capacityMax, 1);
 }
@@ -973,7 +978,7 @@ function renderStylus() {
 
         nameEl.textContent = stylus.name;
         nameEl.style.display = "";
-        hoursEl.textContent = hours + " h";
+        hoursEl.textContent = formatStylusHours(hours) + " h";
         hoursEl.style.display = "";
         bar.style.display = "";
         barFill.style.width = (ratio * 100) + "%";
