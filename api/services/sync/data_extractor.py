@@ -1,10 +1,7 @@
 import glob
 import json
-import logging
 import os
 import shutil
-
-logger = logging.getLogger(__name__)
 
 
 def extract_data(repo_dir):
@@ -16,14 +13,12 @@ def extract_data(repo_dir):
         raise FileNotFoundError("Styli file not found: %s" % styli_path)
     with open(styli_path, "r") as f:
         styli = json.load(f)
-    logger.info("Loaded %d styli from %s", len(styli), styli_path)
 
     collection_path = os.path.join(repo_dir, "data", "collection.json")
     if not os.path.isfile(collection_path):
         raise FileNotFoundError("Collection file not found: %s" % collection_path)
     with open(collection_path, "r") as f:
         collection = json.load(f)
-    logger.info("Found %d entries in collection.json", len(collection))
 
     missing = []
     for entry in collection:
@@ -46,8 +41,6 @@ def extract_data(repo_dir):
 
     if missing:
         raise FileNotFoundError("%d/%d album files missing, first: %s" % (len(missing), len(collection), missing[0]))
-
-    logger.info("Extracted %d records", len(records))
 
     return styli, records
 

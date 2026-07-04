@@ -1,4 +1,3 @@
-import logging
 import threading
 
 
@@ -24,12 +23,10 @@ class StylusHoursTracker:
         get_active_stylus,
         increment_stylus_hours,
         flush_interval_seconds=600,
-        logger=None,
     ):
         self.get_active_stylus = get_active_stylus
         self.increment_stylus_hours = increment_stylus_hours
         self.flush_interval_seconds = flush_interval_seconds
-        self.logger = logger or logging.getLogger(__name__)
         self.lock = threading.RLock()
         self.active_stylus_id = None
         self.current_hours = None
@@ -116,7 +113,6 @@ class StylusHoursTracker:
 
         updated = self.increment_stylus_hours(stylus_id, seconds / 3600)
         if not updated:
-            self.logger.warning("Failed to flush stylus hours for missing stylus %s", stylus_id)
             return False
 
         with self.lock:
@@ -130,7 +126,6 @@ class StylusHoursTracker:
 
         stylus = self.get_active_stylus()
         if not stylus:
-            self.logger.debug("Skipping stylus-hour accrual because no active stylus exists")
             return False
 
         self.active_stylus_id = str(stylus["id"])

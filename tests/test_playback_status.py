@@ -124,6 +124,39 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
         self.assertEqual(message, expected)
         self.assertEqual(sent_messages, [expected])
 
+    def test_publish_playback_status_logs_only_play_stop_decision_rpm(self):
+        detector = PlaybackStatusDetector()
+        detector.sample(SPINNING_RPM_THRESHOLD, now=0)
+        logger = Mock()
+        sent_messages = []
+
+        detector.monotonic = lambda: TONEARM_DELAY_AUTO / 1000
+        publish_playback_status_once(
+            detector,
+            read_rpm=lambda: SPINNING_RPM_THRESHOLD + 12.345,
+            broadcast=sent_messages.append,
+            logger=logger,
+        )
+
+        detector.monotonic = lambda: (TONEARM_DELAY_AUTO / 1000) + 1
+        publish_playback_status_once(
+            detector,
+            read_rpm=lambda: SPINNING_RPM_THRESHOLD + 20,
+            broadcast=sent_messages.append,
+            logger=logger,
+        )
+
+        publish_playback_status_once(
+            detector,
+            read_rpm=lambda: SPINNING_RPM_THRESHOLD - 1.25,
+            broadcast=sent_messages.append,
+            logger=logger,
+        )
+
+        self.assertEqual(logger.info.call_count, 2)
+        logger.info.assert_any_call("Playback status changed to %s at %.2f RPM", "play", SPINNING_RPM_THRESHOLD + 12.345)
+        logger.info.assert_any_call("Playback status changed to %s at %.2f RPM", "stop", SPINNING_RPM_THRESHOLD - 1.25)
+
     def test_format_playback_time_returns_zero_padded_minutes_and_seconds(self):
         self.assertEqual(format_playback_time(0), "00:00")
         self.assertEqual(format_playback_time(1), "00:01")

@@ -112,7 +112,6 @@ def create_stylus_hours_tracker():
     return StylusHoursTracker(
         get_active_stylus=get_active_stylus,
         increment_stylus_hours=increment,
-        logger=app.logger,
     )
 
 
@@ -371,14 +370,11 @@ def sync():
 
             yield "data: " + json.dumps({"status": "Downloading collection"}) + "\n\n"
             clone_or_pull(REPO_URL, TMP_REPO_DIR)
-            app.logger.info("Git sync complete: %s", TMP_REPO_DIR)
 
             yield "data: " + json.dumps({"status": "Updating database"}) + "\n\n"
             styli, records = extract_data(TMP_REPO_DIR)
-            app.logger.info("Extracted %d styli, %d records", len(styli), len(records))
 
             if not records:
-                app.logger.warning("No records extracted — check repo structure at %s", TMP_REPO_DIR)
                 yield "data: " + json.dumps({"status": "Sync warning: 0 records found"}) + "\n\n"
 
             upsert_styli(styli)

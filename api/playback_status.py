@@ -124,11 +124,15 @@ def status_message(status, time_value=None):
     return {"event": "status", "data": data}
 
 
-def publish_playback_status_once(detector, read_rpm, broadcast):
+def publish_playback_status_once(detector, read_rpm, broadcast, logger=None):
     rpm = read_rpm()
     message = detector.sample(rpm)
     if message is None:
         return None
+
+    data = message.get("data") or {}
+    if logger is not None and (data.get("status") == STATUS_STOP or data.get("time") == "00:00"):
+        logger.info("Playback status changed to %s at %.2f RPM", data.get("status"), rpm)
 
     broadcast(message)
     return message
@@ -158,7 +162,7 @@ def run_playback_status_publisher(
     try:
         while True:
             try:
-                publish_playback_status_once(detector, reader.read_rpm, broadcast)
+                publish_playback_status_once(detector, reader.read_rpm, broadcast, logger=logger)
             except Exception as e:
                 logger.error("Failed to publish playback status: %s", e)
             sleep(interval_seconds)
