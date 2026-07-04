@@ -137,3 +137,4 @@ For my **Dual 721** constants are the next:
 5. Add shutdown button on the right of stylus hours.
 6. Add stylus hours storing mechanism.
 7. Try to detect stop - if spinning RPM started constantly decrease.
+8. Do something with playback detection - if sensor is moved - rmp became a bit different - so it's either should be fixed, or we should detect differently - like detect speed is increasing (3-4 constant increases more than 500-1000) or decreasing (3-4 constant decreases).
