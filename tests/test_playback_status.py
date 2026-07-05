@@ -11,6 +11,7 @@ from api.playback_status import (
     format_playback_time,
     publish_playback_status_once,
     run_playback_status_publisher,
+    verify_rpm_sensor_ready,
 )
 
 
@@ -26,6 +27,25 @@ class FakeReader:
 
     def close(self):
         self.closed = True
+
+
+class FailingSampleReader:
+    def __init__(self):
+        self.closed = False
+
+    def read_rpm(self):
+        raise RuntimeError("sample failed")
+
+    def close(self):
+        self.closed = True
+
+
+class ReaderWithoutClose:
+    def __init__(self, rpms):
+        self.rpms = list(rpms)
+
+    def read_rpm(self):
+        return self.rpms.pop(0)
 
 
 class PlaybackStatusDetectorTestCase(unittest.TestCase):
@@ -224,6 +244,33 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
     def test_calculate_rpm_uses_pulse_count_over_elapsed_seconds(self):
         self.assertEqual(calculate_rpm(100, 1), 6000)
         self.assertEqual(calculate_rpm(100, 0), 0.0)
+
+    def test_rpm_sensor_readiness_reads_one_sample_and_closes_reader(self):
+        reader = FakeReader([1234])
+
+        verify_rpm_sensor_ready(create_reader=lambda: reader)
+
+        self.assertEqual(reader.rpms, [])
+        self.assertTrue(reader.closed)
+
+    def test_rpm_sensor_readiness_raises_reader_initialization_failure(self):
+        with self.assertRaisesRegex(RuntimeError, "no gpio"):
+            verify_rpm_sensor_ready(create_reader=Mock(side_effect=RuntimeError("no gpio")))
+
+    def test_rpm_sensor_readiness_closes_reader_when_sample_fails(self):
+        reader = FailingSampleReader()
+
+        with self.assertRaisesRegex(RuntimeError, "sample failed"):
+            verify_rpm_sensor_ready(create_reader=lambda: reader)
+
+        self.assertTrue(reader.closed)
+
+    def test_rpm_sensor_readiness_allows_reader_without_close(self):
+        reader = ReaderWithoutClose([1000])
+
+        verify_rpm_sensor_ready(create_reader=lambda: reader)
+
+        self.assertEqual(reader.rpms, [])
 
     def test_publisher_samples_every_second_and_handles_reader_setup_failure(self):
         errors = []

@@ -367,6 +367,87 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertTrue(thread_class.call_args.kwargs["daemon"])
         thread_class.return_value.start.assert_called_once_with()
 
+    def test_hardware_startup_nfc_readiness_failure_prevents_workers_and_server(self):
+        calls = []
+
+        def verify_sensors():
+            return api_main.verify_required_sensors_ready(
+                boardless_mode=lambda: False,
+                verify_nfc=lambda: (_ for _ in ()).throw(RuntimeError("no pn532")),
+                verify_rpm=lambda: calls.append("rpm"),
+            )
+
+        with self.assertRaisesRegex(api_main.SensorReadinessError, "NFC sensor readiness check failed: no pn532"):
+            api_main.start_api_server(
+                install_hooks=lambda: calls.append("hooks"),
+                verify_sensors=verify_sensors,
+                start_temperature=lambda: calls.append("temperature"),
+                start_playback=lambda: calls.append("playback"),
+                start_nfc=lambda: calls.append("nfc"),
+                run_flask=lambda: calls.append("flask"),
+            )
+
+        self.assertEqual(calls, ["hooks"])
+
+    def test_hardware_startup_rpm_readiness_failure_prevents_workers_and_server(self):
+        calls = []
+
+        def verify_sensors():
+            return api_main.verify_required_sensors_ready(
+                boardless_mode=lambda: False,
+                verify_nfc=lambda: calls.append("nfc-ready"),
+                verify_rpm=lambda: (_ for _ in ()).throw(RuntimeError("no rpm")),
+            )
+
+        with self.assertRaisesRegex(api_main.SensorReadinessError, "RPM sensor readiness check failed: no rpm"):
+            api_main.start_api_server(
+                install_hooks=lambda: calls.append("hooks"),
+                verify_sensors=verify_sensors,
+                start_temperature=lambda: calls.append("temperature"),
+                start_playback=lambda: calls.append("playback"),
+                start_nfc=lambda: calls.append("nfc"),
+                run_flask=lambda: calls.append("flask"),
+            )
+
+        self.assertEqual(calls, ["hooks", "nfc-ready"])
+
+    def test_boardless_startup_skips_physical_sensor_readiness_and_can_start(self):
+        calls = []
+
+        def verify_sensors():
+            calls.append("verify")
+            return api_main.verify_required_sensors_ready(
+                boardless_mode=lambda: True,
+                verify_nfc=lambda: calls.append("nfc-ready"),
+                verify_rpm=lambda: calls.append("rpm-ready"),
+            )
+
+        result = api_main.start_api_server(
+            install_hooks=lambda: calls.append("hooks"),
+            verify_sensors=verify_sensors,
+            start_temperature=lambda: calls.append("temperature"),
+            start_playback=lambda: calls.append("playback"),
+            start_nfc=lambda: calls.append("nfc"),
+            run_flask=lambda: calls.append("flask") or "started",
+        )
+
+        self.assertEqual(result, "started")
+        self.assertEqual(calls, ["hooks", "verify", "temperature", "playback", "nfc", "flask"])
+
+    def test_api_startup_checks_sensors_before_workers_and_flask(self):
+        calls = []
+
+        api_main.start_api_server(
+            install_hooks=lambda: calls.append("hooks"),
+            verify_sensors=lambda: calls.append("verify"),
+            start_temperature=lambda: calls.append("temperature"),
+            start_playback=lambda: calls.append("playback"),
+            start_nfc=lambda: calls.append("nfc"),
+            run_flask=lambda: calls.append("flask"),
+        )
+
+        self.assertEqual(calls, ["hooks", "verify", "temperature", "playback", "nfc", "flask"])
+
     def test_detected_status_messages_update_runtime_state(self):
         self.insert_stylus("1", distance_hours=100.0)
         api_main.broadcast_message({"event": "status", "data": {"status": "play", "time": "00:01"}})

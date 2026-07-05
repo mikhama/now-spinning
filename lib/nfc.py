@@ -155,6 +155,10 @@ def _get_backend():
     return _backend
 
 
+def initialize_backend():
+    return _get_backend()
+
+
 def nfc_read() -> str:
     return _get_backend().read()
 

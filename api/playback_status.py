@@ -227,6 +227,16 @@ def create_gpio_rpm_reader():
     return GpioRpmReader()
 
 
+def verify_rpm_sensor_ready(create_reader=create_gpio_rpm_reader):
+    reader = create_reader()
+    try:
+        reader.read_rpm()
+    finally:
+        close = getattr(reader, "close", None)
+        if close is not None:
+            close()
+
+
 def format_playback_time(total_seconds):
     minutes, seconds = divmod(max(int(total_seconds), 0), 60)
     return f"{minutes:02d}:{seconds:02d}"

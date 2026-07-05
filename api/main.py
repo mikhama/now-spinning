@@ -11,8 +11,9 @@ from flask_sock import Sock
 
 from api.mock_data import RECORDS, STYLI
 from api.nfc_coordinator import NfcCoordinator
-from api.playback_status import run_playback_status_publisher
+from api.playback_status import run_playback_status_publisher, verify_rpm_sensor_ready
 from api.stylus_hours import StylusHoursTracker
+from lib.nfc import initialize_backend as initialize_nfc_backend
 
 app = Flask(__name__, static_folder="../ui", static_url_path="")
 app.logger.setLevel(logging.INFO)
@@ -41,6 +42,10 @@ runtime_state = {
     "status": "idle",
     "status_time": None,
 }
+
+
+class SensorReadinessError(RuntimeError):
+    pass
 
 
 def update_runtime_state(message):
@@ -98,6 +103,32 @@ def is_boardless_mode():
 
 def is_kiosk_shutdown_enabled():
     return os.environ.get("KIOSK_SHUTDOWN_ENABLED", "").lower() == "true"
+
+
+def verify_nfc_sensor_ready(initialize_backend=initialize_nfc_backend):
+    initialize_backend()
+
+
+def verify_required_sensors_ready(
+    *,
+    boardless_mode=is_boardless_mode,
+    verify_nfc=verify_nfc_sensor_ready,
+    verify_rpm=verify_rpm_sensor_ready,
+):
+    if boardless_mode():
+        return False
+
+    try:
+        verify_nfc()
+    except Exception as error:
+        raise SensorReadinessError(f"NFC sensor readiness check failed: {error}") from error
+
+    try:
+        verify_rpm()
+    except Exception as error:
+        raise SensorReadinessError(f"RPM sensor readiness check failed: {error}") from error
+
+    return True
 
 
 def create_stylus_hours_tracker():
@@ -439,6 +470,26 @@ def install_shutdown_hooks():
     return True
 
 
+def start_api_server(
+    *,
+    install_hooks=install_shutdown_hooks,
+    verify_sensors=verify_required_sensors_ready,
+    start_temperature=start_temperature_publisher,
+    start_playback=start_playback_status_publisher,
+    start_nfc=start_nfc_coordinator,
+    run_flask=None,
+):
+    if run_flask is None:
+        run_flask = lambda: app.run(host="0.0.0.0", port=5000)
+
+    install_hooks()
+    verify_sensors()
+    start_temperature()
+    start_playback()
+    start_nfc()
+    return run_flask()
+
+
 # ---------------------------------------------------------------------------
 # Events (boardless mode event publishing)
 # ---------------------------------------------------------------------------
@@ -521,8 +572,4 @@ def ws(ws):
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    install_shutdown_hooks()
-    start_temperature_publisher()
-    start_playback_status_publisher()
-    start_nfc_coordinator()
-    app.run(host="0.0.0.0", port=5000)
+    start_api_server()
