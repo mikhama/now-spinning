@@ -24,7 +24,9 @@ This change keeps calibration separate from runtime playback detection. The prod
 The calibration script should keep recent `(timestamp, rpm)` samples while it polls the sensor. Spinning detection can then compare the current sample with an older sample at least 3 seconds back and require:
 
 - current RPM is above `1000`
-- current RPM increased by more than `500` RPM over that 3 second window
+- current RPM either increased by more than `500` RPM over that 3 second window, or both the current and comparison RPM are above `1000` and stayed within `500` RPM increase/decrease over that window
+
+This covers both cases operators need during calibration: catching active spin-up, and recognizing a platter that was already spinning steadily when the script started.
 
 Alternative considered: continue using one threshold crossing. That is simpler but preserves the noisy behavior this change is meant to remove.
 
@@ -51,5 +53,6 @@ Alternative considered: stop the timer automatically from RPM behavior. That wou
 ## Risks / Trade-offs
 
 - [Risk] One-second sampling may make the 3 second spin-up window approximate rather than exact. -> Mitigation: compare against the oldest retained sample at or before the 3 second lookback when available, and keep console output clear about sample values.
+- [Risk] Starting the script after the platter is already spinning can produce no large positive RPM change. -> Mitigation: treat above-threshold stable RPM within the spin-up delta as spinning too.
 - [Risk] Sensor noise could make a real spin-down sequence fail the strictly-decreasing rule. -> Mitigation: keep the below-1000 RPM stopped threshold as an immediate fallback and make the trend constants easy to adjust.
 - [Risk] Calibration behavior could drift from runtime playback detection. -> Mitigation: document and keep the scope explicitly limited to `exp/spinning_detection_calibration.py`; runtime changes require a separate proposal.

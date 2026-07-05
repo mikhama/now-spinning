@@ -4,6 +4,7 @@
 - [x] 1.2 Add a rolling RPM sample representation that records sample time and measured RPM without changing GPIO pulse counting.
 - [x] 1.3 Implement a testable spinning classification helper that returns true only when RPM is above `1000` and has increased by more than `500` RPM across a `3` second window.
 - [x] 1.4 Implement a testable stopped classification helper that returns true when RPM is below `1000` or when the latest `4` readings are strictly decreasing with at least `1000` RPM total drop.
+- [x] 1.5 Update the spinning classification helper to also detect already-spinning steady RPM above `1000` when the `3` second RPM change stays within `500` RPM increase/decrease.
 
 ## 2. Calibration Flow
 
@@ -17,3 +18,4 @@
 - [x] 3.1 Add unit coverage for spin-up detection below or equal to `1000` RPM, insufficient increase, and valid increase over the observation window.
 - [x] 3.2 Add unit coverage for stopped detection below `1000` RPM, valid strictly decreasing readings with sufficient total drop, non-decreasing readings, and insufficient total drop.
 - [x] 3.3 Run the relevant Python test suite and fix any failures caused by the calibration changes.
+- [x] 3.4 Add unit coverage for already-spinning steady RPM and excessive RPM decrease over the observation window.

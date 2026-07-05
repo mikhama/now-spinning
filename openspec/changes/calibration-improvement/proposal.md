@@ -4,7 +4,7 @@ The current calibration script starts timing from a single threshold crossing, w
 
 ## What Changes
 
-- Update the experimental calibration script to classify the platter as spinning only when RPM is above 1000 and has increased by more than 500 RPM over a 3 second window.
+- Update the experimental calibration script to classify the platter as spinning when RPM is above 1000 and either has increased by more than 500 RPM over a 3 second window or is already spinning steadily without more than 500 RPM increase or decrease over that window.
 - Keep the manual needle-on-platter confirmation flow: once spinning is detected, the script waits for the operator to press the button/Enter when the needle reaches the platter, then reports the measured delay.
 - Add stopped detection to the calibration tool: classify the platter as stopped when RPM drops below 1000, or when 4 consecutive readings are strictly decreasing and the total drop from the first to the fourth reading is at least 1000 RPM.
 - Scope the change to the calibration tool only; the current app spinning detection logic is not changed by this proposal.

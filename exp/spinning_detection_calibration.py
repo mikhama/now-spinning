@@ -58,7 +58,13 @@ def is_spinning(samples):
     if comparison_sample is None:
         return False
 
-    return latest.rpm - comparison_sample.rpm > SPIN_UP_RPM_INCREASE
+    rpm_change = latest.rpm - comparison_sample.rpm
+    actively_spinning_up = rpm_change > SPIN_UP_RPM_INCREASE
+    already_spinning_steadily = (
+        comparison_sample.rpm > MIN_SPINNING_RPM
+        and abs(rpm_change) <= SPIN_UP_RPM_INCREASE
+    )
+    return actively_spinning_up or already_spinning_steadily
 
 
 def is_stopped(samples):

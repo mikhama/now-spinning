@@ -20,6 +20,24 @@ class SpinningDetectionCalibrationTestCase(unittest.TestCase):
 
         self.assertFalse(is_spinning(samples))
 
+    def test_already_spinning_steady_rpm_is_spinning(self):
+        samples = [
+            RpmSample(0, 5939.55),
+            RpmSample(1, 6118.88),
+            RpmSample(2, 6058.97),
+            RpmSample(3, 6119.03),
+        ]
+
+        self.assertTrue(is_spinning(samples))
+
+    def test_decreasing_too_much_over_observation_window_is_not_spinning(self):
+        samples = [
+            RpmSample(0, 6200),
+            RpmSample(3, 5600),
+        ]
+
+        self.assertFalse(is_spinning(samples))
+
     def test_spin_up_with_valid_increase_over_observation_window_is_spinning(self):
         samples = [
             RpmSample(0, 800),

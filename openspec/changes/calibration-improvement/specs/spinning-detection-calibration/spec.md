@@ -1,20 +1,26 @@
 ## MODIFIED Requirements
 
 ### Requirement: Threshold-based timing start
-The calibration script SHALL sample the platter sensor and start the tonearm delay timer only after the measured RPM is above `1000` and has increased by more than `500` RPM across a `3` second observation window.
+The calibration script SHALL sample the platter sensor and start the tonearm delay timer only after the measured RPM is above `1000` and either has increased by more than `500` RPM across a `3` second observation window, or both the latest and comparison RPM are above `1000` and have stayed within `500` RPM increase/decrease across that window.
 
 #### Scenario: Sensor value is below minimum RPM
 - **WHEN** the latest measured RPM is `1000` or lower
 - **THEN** the script SHALL continue sampling and SHALL NOT start the tonearm delay timer
 
-#### Scenario: Sensor value has not increased enough
+#### Scenario: Sensor value is decreasing too much
 - **WHEN** the latest measured RPM is above `1000`
-- **AND** the RPM increase across the `3` second observation window is `500` RPM or less
+- **AND** the RPM decrease across the `3` second observation window is more than `500` RPM
 - **THEN** the script SHALL continue sampling and SHALL NOT start the tonearm delay timer
 
 #### Scenario: Sensor value reaches spin-up trend
 - **WHEN** the latest measured RPM is above `1000`
 - **AND** the RPM has increased by more than `500` RPM across the `3` second observation window
+- **THEN** the script SHALL start the tonearm delay timer and print a console message telling the operator that timing has started
+
+#### Scenario: Sensor value is already spinning steadily
+- **WHEN** the latest measured RPM is above `1000`
+- **AND** the comparison RPM from the `3` second observation window is above `1000`
+- **AND** the RPM change across the `3` second observation window is no more than `500` RPM increase or decrease
 - **THEN** the script SHALL start the tonearm delay timer and print a console message telling the operator that timing has started
 
 ## ADDED Requirements
