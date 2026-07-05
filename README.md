@@ -113,12 +113,19 @@ To check IR sensor and get RPM treshold:
 python -m exp.platter_spinning
 ```
 
-To calibrate platter spinning detection and tonearm delay in milliseconds, edit
-`SPINNING_RPM_THRESHOLD` in `exp/spinning_detection_calibration.py`, then run on
-the Raspberry Pi with the platter sensor connected:
+To calibrate platter spinning detection and tonearm delay in milliseconds, run
+on the Raspberry Pi with the platter sensor connected:
 ```bash
 python -m exp.spinning_detection_calibration
 ```
+
+To test stopped detection with the same sensor sampling loop, start with the
+platter spinning, run:
+```bash
+python -m exp.spinning_detection_calibration --mode stop
+```
+Then stop the platter. The script prints each measured RPM sample and exits
+after stopped detection triggers.
 
 For my **Dual 721** constants are the next:
 
