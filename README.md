@@ -133,8 +133,6 @@ For my **Dual 721** constants are the next:
 ## TODOs:
 1. Stylus prev/next buttons - saving current selected stylus.
 2. It should be impossible to scan not linked record.
-3. Stylus count hours during playback.
-4. Played albums log with duration.
-5. Add shutdown button on the right of stylus hours.
-6. Try to detect stop - if spinning RPM started constantly decrease.
-7. Do something with playback detection - if sensor is moved - rmp became a bit different - so it's either should be fixed, or we should detect differently - like detect speed is increasing (3-4 constant increases more than 500-1000) or decreasing (3-4 constant decreases).
+3. Played albums log with duration.
+4. Add shutdown button on the right of stylus hours.
+5. Add check if sensors are ready and working, and if not show an error.
