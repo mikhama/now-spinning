@@ -42,6 +42,8 @@ Stopped detection should return true when the latest RPM is below `1000`, or whe
 
 The decreasing rule should operate on the latest strictly decreasing suffix of the sample history. The below-threshold rule should be immediate so a clearly stopped platter does not need to wait for 4 more samples.
 
+Stop-detection mode should not prune samples using the spin-up observation window, because that can discard the start of a gradual decreasing run before it reaches the required total drop. It may discard only samples before the latest decreasing run, since those cannot affect the stopped classification.
+
 Alternative considered: require the latest 4 samples alone to drop by 1000 RPM. That misses gradual spin-down where the platter is constantly decreasing but each 4-sample slice drops less than 1000 RPM.
 
 ### Preserve manual delay measurement once spinning is detected
@@ -53,6 +55,7 @@ Alternative considered: stop the timer automatically from RPM behavior. That wou
 ## Risks / Trade-offs
 
 - [Risk] One-second sampling may make the 3 second spin-up window approximate rather than exact. -> Mitigation: compare against the oldest retained sample at or before the 3 second lookback when available, and keep console output clear about sample values.
+- [Risk] Reusing spin-up sample pruning in stop mode can discard the beginning of a long decreasing run. -> Mitigation: use stop-specific pruning that preserves the latest decreasing run.
 - [Risk] Starting the script after the platter is already spinning can produce no large positive RPM change. -> Mitigation: treat above-threshold stable RPM within the spin-up delta as spinning too.
 - [Risk] A continuously slowing platter can have a small enough net drop to look stable. -> Mitigation: reject strictly decreasing observation windows from the already-spinning steady rule.
 - [Risk] Sensor noise could make a real spin-down sequence fail the strictly-decreasing rule. -> Mitigation: keep the below-1000 RPM stopped threshold as an immediate fallback and make the trend constants easy to adjust.

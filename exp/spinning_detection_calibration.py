@@ -109,6 +109,18 @@ def prune_samples(samples):
         samples.pop(0)
 
 
+def prune_stopped_samples(samples):
+    decreasing_run_start = len(samples) - 1
+    while (
+        decreasing_run_start > 0
+        and samples[decreasing_run_start - 1].rpm > samples[decreasing_run_start].rpm
+    ):
+        decreasing_run_start -= 1
+
+    if decreasing_run_start > 0:
+        del samples[:decreasing_run_start]
+
+
 def create_sensor(counter):
     from gpiozero import DigitalInputDevice
 
@@ -172,7 +184,7 @@ def wait_for_stopped(counter):
 
         now, rpm = sample_rpm(counter, start_time)
         samples.append(RpmSample(now, rpm))
-        prune_samples(samples)
+        prune_stopped_samples(samples)
 
         stopped = is_stopped(samples)
         print(f"Measured spinning value: {rpm:.2f} RPM (stopped={stopped})")

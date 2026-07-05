@@ -1,6 +1,11 @@
 import unittest
 
-from exp.spinning_detection_calibration import RpmSample, is_spinning, is_stopped
+from exp.spinning_detection_calibration import (
+    RpmSample,
+    is_spinning,
+    is_stopped,
+    prune_stopped_samples,
+)
 
 
 class SpinningDetectionCalibrationTestCase(unittest.TestCase):
@@ -111,6 +116,26 @@ class SpinningDetectionCalibrationTestCase(unittest.TestCase):
             RpmSample(10, 4918.71),
         ]
 
+        self.assertTrue(is_stopped(samples))
+
+    def test_stop_pruning_preserves_latest_decreasing_run(self):
+        samples = [
+            RpmSample(0, 6118.53),
+            RpmSample(1, 6118.50),
+            RpmSample(2, 6178.40),
+            RpmSample(3, 6118.43),
+            RpmSample(4, 6057.77),
+            RpmSample(5, 6118.53),
+            RpmSample(6, 5938.54),
+            RpmSample(7, 5638.40),
+            RpmSample(8, 5398.63),
+            RpmSample(9, 5158.67),
+            RpmSample(10, 4918.71),
+        ]
+
+        prune_stopped_samples(samples)
+
+        self.assertEqual(samples[0], RpmSample(5, 6118.53))
         self.assertTrue(is_stopped(samples))
 
 

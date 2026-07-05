@@ -7,6 +7,7 @@
 - [x] 1.5 Update the spinning classification helper to also detect already-spinning steady RPM above `1000` when the `3` second RPM change stays within `500` RPM increase/decrease.
 - [x] 1.6 Reject strictly decreasing observation windows from the already-spinning steady RPM branch.
 - [x] 1.7 Update stopped classification to use the latest strictly decreasing run instead of only the latest 4-sample window.
+- [x] 1.8 Use stop-specific sample retention so stop mode preserves the latest decreasing run instead of applying spin-up window pruning.
 
 ## 2. Calibration Flow
 
@@ -23,3 +24,4 @@
 - [x] 3.4 Add unit coverage for already-spinning steady RPM and excessive RPM decrease over the observation window.
 - [x] 3.5 Add unit coverage for a continuously decreasing above-threshold RPM sequence that stays within the steady RPM delta.
 - [x] 3.6 Add unit coverage for gradual spin-down where the latest decreasing run drops more than `1000` RPM across more than `4` samples.
+- [x] 3.7 Add unit coverage that stop-mode sample pruning preserves a long decreasing run until stopped detection can trigger.

@@ -44,6 +44,11 @@ The calibration script SHALL classify the platter as stopped when the latest mea
 - **AND** the total drop from the first reading in that run to the latest reading is at least `1000` RPM
 - **THEN** the script SHALL classify the platter as stopped
 
+#### Scenario: RPM gradually decreases over more than the spin-up observation window
+- **WHEN** stop-detection mode samples a latest strictly decreasing run longer than `3` seconds
+- **AND** the total drop from the first reading in that run to the latest reading is at least `1000` RPM
+- **THEN** the script SHALL preserve the run and classify the platter as stopped
+
 #### Scenario: RPM does not constantly decrease
 - **WHEN** the latest strictly decreasing run contains fewer than `4` consecutive RPM readings
 - **AND** the latest measured RPM is `1000` or higher
