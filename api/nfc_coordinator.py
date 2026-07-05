@@ -83,6 +83,7 @@ class NfcCoordinator:
 
     def _poll_standby_once(self):
         try:
+            self._log_info("NFC read attempt started (timeout=%s)", self.read_timeout_seconds)
             record_id = self.read_nfc(timeout=self.read_timeout_seconds)
         except NfcNoCard:
             self.scan_error_emitted = False
@@ -128,3 +129,7 @@ class NfcCoordinator:
     def _log_error(self, message, error):
         if self.logger:
             self.logger.error(message, error)
+
+    def _log_info(self, message, *args):
+        if self.logger:
+            self.logger.info(message, *args)
