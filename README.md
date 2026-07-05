@@ -133,6 +133,6 @@ For my **Dual 721** constants are the next:
 ## TODOs:
 1. Stylus prev/next buttons - saving current selected stylus.
 2. It should be impossible to scan not linked record.
-3. Played albums log with duration.
+3. Played albums log with duration, and script to get results.
 4. Add shutdown button on the right of stylus hours.
-5. Add check if sensors are ready and working, and if not show an error.
+5. Add script to cleanup stylus table completely.
