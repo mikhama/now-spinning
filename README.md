@@ -128,13 +128,7 @@ Then stop the platter. The script prints each measured RPM sample and exits
 after stopped detection triggers.
 
 For my **Dual 721** constants are the next:
-
-## SPINNING_RPM_THRESHOLD = 5500
-- `TONEARM_DELAY_AUTO = AVG(9098, 9677, 9686, 10058, 9670, 10165) = 9726`
-- `TONEARM_DELAY_MANUAL = AVG(1823, 589, 1347, 1258, 2590, 4140) = 1958`
-
-## SPINNING_RPM_THRESHOLD = 4500
-- `TONEARM_DELAY_AUTO = AVG(10753, 10236, 11376, 10963, 10635, 10317) = 10713`
+- `TONEARM_DELAY_AUTO = AVG(12171, 13868, 11240, 12434, 11512, 11683, 11896, 11719) = 12065`
 
 ## TODOs:
 1. Stylus prev/next buttons - saving current selected stylus.

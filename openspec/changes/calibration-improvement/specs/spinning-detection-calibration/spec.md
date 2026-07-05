@@ -33,24 +33,24 @@ The calibration script SHALL sample the platter sensor and start the tonearm del
 ## ADDED Requirements
 
 ### Requirement: Calibration stopped detection
-The calibration script SHALL classify the platter as stopped when the latest measured RPM is below `1000`, or when the latest `4` consecutive RPM readings are strictly decreasing and the total drop from the first reading to the fourth reading is at least `1000` RPM.
+The calibration script SHALL classify the platter as stopped when the latest measured RPM is below `1000`, or when the latest strictly decreasing run contains at least `4` consecutive RPM readings and the total drop from the first reading in that run to the latest reading is at least `1000` RPM.
 
 #### Scenario: RPM drops below stopped threshold
 - **WHEN** the latest measured RPM is below `1000`
 - **THEN** the script SHALL classify the platter as stopped
 
 #### Scenario: RPM constantly decreases with sufficient total drop
-- **WHEN** the latest `4` consecutive RPM readings are strictly decreasing
-- **AND** the total drop from the first reading to the fourth reading is at least `1000` RPM
+- **WHEN** the latest strictly decreasing run contains at least `4` consecutive RPM readings
+- **AND** the total drop from the first reading in that run to the latest reading is at least `1000` RPM
 - **THEN** the script SHALL classify the platter as stopped
 
 #### Scenario: RPM does not constantly decrease
-- **WHEN** the latest `4` consecutive RPM readings are not strictly decreasing
+- **WHEN** the latest strictly decreasing run contains fewer than `4` consecutive RPM readings
 - **AND** the latest measured RPM is `1000` or higher
 - **THEN** the script SHALL NOT classify the platter as stopped from those readings
 
 #### Scenario: RPM constantly decreases without sufficient total drop
-- **WHEN** the latest `4` consecutive RPM readings are strictly decreasing
-- **AND** the total drop from the first reading to the fourth reading is less than `1000` RPM
+- **WHEN** the latest strictly decreasing run contains at least `4` consecutive RPM readings
+- **AND** the total drop from the first reading in that run to the latest reading is less than `1000` RPM
 - **AND** the latest measured RPM is `1000` or higher
 - **THEN** the script SHALL NOT classify the platter as stopped from those readings

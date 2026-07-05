@@ -38,11 +38,11 @@ Alternative considered: inline the checks inside the polling loop. That would be
 
 ### Treat stopped as either below-threshold or sustained decreasing trend
 
-Stopped detection should return true when the latest RPM is below `1000`, or when 4 consecutive readings are strictly decreasing and the total drop from the first to the fourth reading is at least `1000` RPM.
+Stopped detection should return true when the latest RPM is below `1000`, or when the latest decreasing run contains at least 4 consecutive readings and the total drop from the start of that decreasing run to the latest reading is at least `1000` RPM.
 
-The decreasing rule should operate on the latest 4 samples. The below-threshold rule should be immediate so a clearly stopped platter does not need to wait for 4 more samples.
+The decreasing rule should operate on the latest strictly decreasing suffix of the sample history. The below-threshold rule should be immediate so a clearly stopped platter does not need to wait for 4 more samples.
 
-Alternative considered: require a per-step minimum drop. The clarified requirement uses a total drop across 4 decreasing readings, which avoids rejecting real spin-down sequences where one interval is smaller but the overall direction is clear.
+Alternative considered: require the latest 4 samples alone to drop by 1000 RPM. That misses gradual spin-down where the platter is constantly decreasing but each 4-sample slice drops less than 1000 RPM.
 
 ### Preserve manual delay measurement once spinning is detected
 

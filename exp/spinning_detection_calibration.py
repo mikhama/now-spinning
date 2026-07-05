@@ -83,16 +83,19 @@ def is_stopped(samples):
     if latest.rpm < STOPPED_RPM_THRESHOLD:
         return True
 
-    if len(samples) < STOPPED_SAMPLE_COUNT:
+    decreasing_run_start = len(samples) - 1
+    while (
+        decreasing_run_start > 0
+        and samples[decreasing_run_start - 1].rpm > samples[decreasing_run_start].rpm
+    ):
+        decreasing_run_start -= 1
+
+    decreasing_run = samples[decreasing_run_start:]
+    if len(decreasing_run) < STOPPED_SAMPLE_COUNT:
         return False
 
-    recent = samples[-STOPPED_SAMPLE_COUNT:]
-    strictly_decreasing = all(
-        previous.rpm > current.rpm
-        for previous, current in zip(recent, recent[1:])
-    )
-    total_drop = recent[0].rpm - recent[-1].rpm
-    return strictly_decreasing and total_drop >= STOPPED_TOTAL_RPM_DROP
+    total_drop = decreasing_run[0].rpm - decreasing_run[-1].rpm
+    return total_drop >= STOPPED_TOTAL_RPM_DROP
 
 
 def prune_samples(samples):

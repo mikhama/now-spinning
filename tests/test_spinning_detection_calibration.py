@@ -96,6 +96,23 @@ class SpinningDetectionCalibrationTestCase(unittest.TestCase):
 
         self.assertFalse(is_stopped(samples))
 
+    def test_gradual_spin_down_with_sufficient_total_run_drop_is_stopped(self):
+        samples = [
+            RpmSample(0, 6118.53),
+            RpmSample(1, 6118.50),
+            RpmSample(2, 6178.40),
+            RpmSample(3, 6118.43),
+            RpmSample(4, 6057.77),
+            RpmSample(5, 6118.53),
+            RpmSample(6, 5938.54),
+            RpmSample(7, 5638.40),
+            RpmSample(8, 5398.63),
+            RpmSample(9, 5158.67),
+            RpmSample(10, 4918.71),
+        ]
+
+        self.assertTrue(is_stopped(samples))
+
 
 if __name__ == "__main__":
     unittest.main()
