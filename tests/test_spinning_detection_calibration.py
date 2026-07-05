@@ -38,6 +38,17 @@ class SpinningDetectionCalibrationTestCase(unittest.TestCase):
 
         self.assertFalse(is_spinning(samples))
 
+    def test_strictly_decreasing_within_steady_delta_is_not_spinning(self):
+        samples = [
+            RpmSample(4, 4559.10),
+            RpmSample(5, 4438.73),
+            RpmSample(6, 4259.20),
+            RpmSample(7, 4019.27),
+            RpmSample(8, 3959.26),
+        ]
+
+        self.assertFalse(is_spinning(samples))
+
     def test_spin_up_with_valid_increase_over_observation_window_is_spinning(self):
         samples = [
             RpmSample(0, 800),

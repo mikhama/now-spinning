@@ -1,7 +1,7 @@
 ## MODIFIED Requirements
 
 ### Requirement: Threshold-based timing start
-The calibration script SHALL sample the platter sensor and start the tonearm delay timer only after the measured RPM is above `1000` and either has increased by more than `500` RPM across a `3` second observation window, or both the latest and comparison RPM are above `1000` and have stayed within `500` RPM increase/decrease across that window.
+The calibration script SHALL sample the platter sensor and start the tonearm delay timer only after the measured RPM is above `1000` and either has increased by more than `500` RPM across a `3` second observation window, or both the latest and comparison RPM are above `1000`, have stayed within `500` RPM increase/decrease across that window, and the window is not strictly decreasing.
 
 #### Scenario: Sensor value is below minimum RPM
 - **WHEN** the latest measured RPM is `1000` or lower
@@ -21,7 +21,14 @@ The calibration script SHALL sample the platter sensor and start the tonearm del
 - **WHEN** the latest measured RPM is above `1000`
 - **AND** the comparison RPM from the `3` second observation window is above `1000`
 - **AND** the RPM change across the `3` second observation window is no more than `500` RPM increase or decrease
+- **AND** the readings across the `3` second observation window are not strictly decreasing
 - **THEN** the script SHALL start the tonearm delay timer and print a console message telling the operator that timing has started
+
+#### Scenario: Sensor value is steadily decreasing
+- **WHEN** the latest measured RPM is above `1000`
+- **AND** the RPM change across the `3` second observation window is no more than `500` RPM increase or decrease
+- **AND** the readings across the `3` second observation window are strictly decreasing
+- **THEN** the script SHALL continue sampling and SHALL NOT start the tonearm delay timer
 
 ## ADDED Requirements
 

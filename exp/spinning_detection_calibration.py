@@ -49,9 +49,11 @@ def is_spinning(samples):
 
     lookback_time = latest.sample_time - SPIN_UP_OBSERVATION_WINDOW_SECONDS
     comparison_sample = None
-    for sample in samples:
+    comparison_index = None
+    for index, sample in enumerate(samples):
         if sample.sample_time <= lookback_time:
             comparison_sample = sample
+            comparison_index = index
         else:
             break
 
@@ -59,10 +61,16 @@ def is_spinning(samples):
         return False
 
     rpm_change = latest.rpm - comparison_sample.rpm
+    observation_window = samples[comparison_index:]
+    strictly_decreasing = all(
+        previous.rpm > current.rpm
+        for previous, current in zip(observation_window, observation_window[1:])
+    )
     actively_spinning_up = rpm_change > SPIN_UP_RPM_INCREASE
     already_spinning_steadily = (
         comparison_sample.rpm > MIN_SPINNING_RPM
         and abs(rpm_change) <= SPIN_UP_RPM_INCREASE
+        and not strictly_decreasing
     )
     return actively_spinning_up or already_spinning_steadily
 
