@@ -2,10 +2,11 @@ import unittest
 from unittest.mock import Mock
 
 from api.playback_status import (
+    MIN_SPINNING_RPM,
     SAMPLE_INTERVAL_SECONDS,
-    SPINNING_RPM_THRESHOLD,
     TONEARM_DELAY_AUTO,
     PlaybackStatusDetector,
+    SPIN_UP_OBSERVATION_WINDOW_SECONDS,
     calculate_rpm,
     format_playback_time,
     publish_playback_status_once,
@@ -34,89 +35,123 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
             data["time"] = time_value
         return {"event": "status", "data": data}
 
-    def test_below_threshold_samples_produce_no_events(self):
+    def spin_up_detector(self):
+        detector = PlaybackStatusDetector()
+        detector.sample(900, now=0)
+        detector.sample(1601, now=SPIN_UP_OBSERVATION_WINDOW_SECONDS + 0.1)
+        return detector
+
+    def test_automatic_tonearm_delay_uses_measured_value(self):
+        self.assertEqual(TONEARM_DELAY_AUTO, 12065)
+
+    def test_rpm_below_or_equal_to_minimum_spinning_value_produces_no_play_event(self):
         detector = PlaybackStatusDetector()
 
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD - 1, now=0))
-        self.assertIsNone(detector.sample(0, now=1))
+        self.assertIsNone(detector.sample(MIN_SPINNING_RPM, now=0))
+        self.assertIsNone(detector.sample(MIN_SPINNING_RPM - 1, now=4))
         self.assertEqual(detector.state, PlaybackStatusDetector.STOPPED)
 
-    def test_threshold_crossing_waits_for_tonearm_delay_then_emits_play(self):
+    def test_insufficient_spin_up_increase_does_not_start_tonearm_delay(self):
         detector = PlaybackStatusDetector()
 
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=0))
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=10.712))
+        self.assertIsNone(detector.sample(900, now=0))
+        self.assertIsNone(detector.sample(1300, now=3.1))
+        self.assertEqual(detector.state, PlaybackStatusDetector.STOPPED)
+
+    def test_spin_up_trend_waits_for_tonearm_delay_then_emits_play(self):
+        detector = PlaybackStatusDetector()
+
+        self.assertIsNone(detector.sample(900, now=0))
+        self.assertIsNone(detector.sample(1601, now=3.1))
+        self.assertEqual(detector.state, PlaybackStatusDetector.TONEARM_DELAY_PENDING)
+        self.assertIsNone(detector.sample(1700, now=15.164))
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD, now=10.713),
+            detector.sample(1700, now=15.165),
             self.status_message("play", "00:00"),
         )
         self.assertEqual(detector.state, PlaybackStatusDetector.PLAYING)
 
-    def test_drop_before_tonearm_delay_resets_pending_playback_without_events(self):
+    def test_already_spinning_steady_rpm_starts_tonearm_delay(self):
         detector = PlaybackStatusDetector()
 
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=0))
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD - 1, now=5))
-        self.assertEqual(detector.state, PlaybackStatusDetector.STOPPED)
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=8))
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD, now=18))
+        self.assertIsNone(detector.sample(3300, now=0))
+        self.assertIsNone(detector.sample(3350, now=1))
+        self.assertIsNone(detector.sample(3325, now=2))
+        self.assertIsNone(detector.sample(3340, now=3.1))
+        self.assertEqual(detector.state, PlaybackStatusDetector.TONEARM_DELAY_PENDING)
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD, now=18.713),
+            detector.sample(3345, now=15.165),
             self.status_message("play", "00:00"),
         )
 
-    def test_drop_after_playback_started_emits_stop_once(self):
+    def test_strictly_decreasing_steady_range_rpm_does_not_start_tonearm_delay(self):
         detector = PlaybackStatusDetector()
 
-        detector.sample(SPINNING_RPM_THRESHOLD, now=0)
-        self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD, now=10.713),
-            self.status_message("play", "00:00"),
-        )
-        self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD - 1, now=10),
-            self.status_message("stop"),
-        )
+        self.assertIsNone(detector.sample(3400, now=0))
+        self.assertIsNone(detector.sample(3300, now=1))
+        self.assertIsNone(detector.sample(3200, now=2))
+        self.assertIsNone(detector.sample(3100, now=3.1))
         self.assertEqual(detector.state, PlaybackStatusDetector.STOPPED)
+
+    def test_stopped_before_tonearm_delay_resets_pending_playback_without_events(self):
+        detector = PlaybackStatusDetector()
+
+        self.assertIsNone(detector.sample(900, now=0))
+        self.assertIsNone(detector.sample(1601, now=3.1))
+        self.assertEqual(detector.state, PlaybackStatusDetector.TONEARM_DELAY_PENDING)
+        self.assertIsNone(detector.sample(900, now=4))
+        self.assertEqual(detector.state, PlaybackStatusDetector.STOPPED)
+
+    def test_rpm_below_stopped_threshold_after_playback_started_emits_stop_once(self):
+        detector = self.spin_up_detector()
+
+        self.assertEqual(detector.sample(1700, now=15.165), self.status_message("play", "00:00"))
+        self.assertEqual(detector.sample(999, now=16), self.status_message("stop"))
+        self.assertEqual(detector.state, PlaybackStatusDetector.STOPPED)
+
+    def test_strictly_decreasing_run_after_playback_started_emits_stop_once(self):
+        detector = self.spin_up_detector()
+
+        self.assertEqual(detector.sample(4200, now=15.165), self.status_message("play", "00:00"))
+        self.assertIsNone(detector.sample(4000, now=16))
+        self.assertEqual(detector.sample(3600, now=17), self.status_message("play", "00:01"))
+        self.assertEqual(detector.sample(3200, now=18), self.status_message("stop"))
 
     def test_repeated_playing_samples_emit_updated_time_without_duplicate_seconds(self):
-        detector = PlaybackStatusDetector()
+        detector = self.spin_up_detector()
 
-        detector.sample(SPINNING_RPM_THRESHOLD, now=0)
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD, now=10.713),
+            detector.sample(1700, now=15.165),
             self.status_message("play", "00:00"),
         )
-        self.assertIsNone(detector.sample(SPINNING_RPM_THRESHOLD + 100, now=11.2))
+        self.assertIsNone(detector.sample(1800, now=15.8))
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD + 100, now=11.8),
+            detector.sample(1800, now=16.2),
             self.status_message("play", "00:01"),
         )
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD + 100, now=72),
+            detector.sample(1800, now=76.2),
             self.status_message("play", "01:01"),
         )
 
     def test_duplicate_stop_events_are_suppressed(self):
-        detector = PlaybackStatusDetector()
+        detector = self.spin_up_detector()
 
-        detector.sample(SPINNING_RPM_THRESHOLD, now=0)
-        detector.sample(SPINNING_RPM_THRESHOLD, now=10.713)
+        detector.sample(1700, now=15.165)
         self.assertEqual(
-            detector.sample(SPINNING_RPM_THRESHOLD - 1, now=12),
+            detector.sample(999, now=16),
             self.status_message("stop"),
         )
-        self.assertIsNone(detector.sample(0, now=13))
+        self.assertIsNone(detector.sample(0, now=17))
 
     def test_publish_playback_status_once_broadcasts_existing_status_format_with_time(self):
-        detector = PlaybackStatusDetector()
-        detector.sample(SPINNING_RPM_THRESHOLD, now=0)
-        detector.monotonic = lambda: TONEARM_DELAY_AUTO / 1000
+        detector = self.spin_up_detector()
+        detector.monotonic = lambda: 15.165
         sent_messages = []
 
         message = publish_playback_status_once(
             detector,
-            read_rpm=lambda: SPINNING_RPM_THRESHOLD,
+            read_rpm=lambda: 1700,
             broadcast=sent_messages.append,
         )
 
@@ -125,62 +160,59 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
         self.assertEqual(sent_messages, [expected])
 
     def test_publish_playback_status_logs_sensor_samples_and_start_stop_events(self):
-        detector = PlaybackStatusDetector()
-        detector.sample(SPINNING_RPM_THRESHOLD, now=0)
+        detector = self.spin_up_detector()
         logger = Mock()
         sent_messages = []
 
-        detector.monotonic = lambda: TONEARM_DELAY_AUTO / 1000
+        detector.monotonic = lambda: 15.165
         publish_playback_status_once(
             detector,
-            read_rpm=lambda: SPINNING_RPM_THRESHOLD + 12.345,
+            read_rpm=lambda: 1700.345,
             broadcast=sent_messages.append,
             logger=logger,
         )
 
-        detector.monotonic = lambda: (TONEARM_DELAY_AUTO / 1000) + 1
+        detector.monotonic = lambda: 16.165
         publish_playback_status_once(
             detector,
-            read_rpm=lambda: SPINNING_RPM_THRESHOLD + 20,
+            read_rpm=lambda: 1720,
             broadcast=sent_messages.append,
             logger=logger,
         )
 
+        detector.monotonic = lambda: 17.165
         publish_playback_status_once(
             detector,
-            read_rpm=lambda: SPINNING_RPM_THRESHOLD - 1.25,
+            read_rpm=lambda: 998.75,
             broadcast=sent_messages.append,
             logger=logger,
         )
 
         self.assertEqual(logger.info.call_count, 5)
         logger.info.assert_any_call(
-            "Playback sensor RPM sample: %.2f RPM (threshold %.2f, spinning=%s)",
-            SPINNING_RPM_THRESHOLD + 12.345,
-            SPINNING_RPM_THRESHOLD,
+            "Playback sensor RPM sample: %.2f RPM (spinning=%s)",
+            1700.345,
             True,
         )
         logger.info.assert_any_call(
-            "Playback sensor RPM sample: %.2f RPM (threshold %.2f, spinning=%s)",
-            SPINNING_RPM_THRESHOLD + 20,
-            SPINNING_RPM_THRESHOLD,
+            "Playback sensor RPM sample: %.2f RPM (spinning=%s)",
+            1720,
             True,
         )
         logger.info.assert_any_call(
-            "Playback sensor RPM sample: %.2f RPM (threshold %.2f, spinning=%s)",
-            SPINNING_RPM_THRESHOLD - 1.25,
-            SPINNING_RPM_THRESHOLD,
+            "Playback sensor RPM sample: %.2f RPM (spinning=%s)",
+            998.75,
             False,
         )
         logger.info.assert_any_call(
             "Playback status event sent: %s at %.2f RPM",
             "start",
-            SPINNING_RPM_THRESHOLD + 12.345,
+            1700.345,
         )
         logger.info.assert_any_call(
             "Playback status event sent: %s at %.2f RPM",
             "stop",
-            SPINNING_RPM_THRESHOLD - 1.25,
+            998.75,
         )
 
     def test_format_playback_time_returns_zero_padded_minutes_and_seconds(self):
@@ -208,7 +240,7 @@ class PlaybackStatusDetectorTestCase(unittest.TestCase):
         self.assertEqual(str(errors[0][1]), "no gpio")
 
     def test_publisher_uses_one_second_sample_interval(self):
-        reader = FakeReader([SPINNING_RPM_THRESHOLD])
+        reader = FakeReader([MIN_SPINNING_RPM])
         sleeps = []
 
         with self.assertRaises(KeyboardInterrupt):
