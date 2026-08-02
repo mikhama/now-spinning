@@ -3,3 +3,4 @@ __pycache__
 tmp/
 data/
 ui/images/albums/
+.DS_Store
