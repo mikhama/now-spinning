@@ -92,6 +92,7 @@ class NfcCoordinator:
             self._log_error("NFC read failed: %s", error)
             if not self.scan_error_emitted:
                 self._broadcast({"event": "scan", "data": {"record_id": None}})
+                self.last_emitted_record_id = None
                 self.scan_error_emitted = True
             return
 

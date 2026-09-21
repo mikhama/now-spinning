@@ -67,7 +67,40 @@ class NfcCoordinatorTestCase(unittest.TestCase):
             ],
         )
         self.assertEqual(coordinator.last_successful_record_id, "2")
-        self.assertEqual(coordinator.last_emitted_record_id, "2")
+        self.assertIsNone(coordinator.last_emitted_record_id)
+
+    def test_same_record_is_emitted_again_after_read_error_and_no_card(self):
+        reads = iter([
+            "1",
+            NfcError("bad read"),
+            NfcNoCard("none"),
+            "1",
+            "1",
+        ])
+
+        def read_nfc(timeout):
+            result = next(reads)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        coordinator, messages = self.make_coordinator(read_nfc=read_nfc)
+        coordinator.set_mode("standby")
+
+        for _ in range(5):
+            coordinator.tick()
+
+        self.assertEqual(
+            messages,
+            [
+                {"event": "scan", "data": {"record_id": "1"}},
+                {"event": "scan", "data": {"record_id": None}},
+                {"event": "scan", "data": {"record_id": "1"}},
+            ],
+        )
+        self.assertEqual(coordinator.last_successful_record_id, "1")
+        self.assertEqual(coordinator.last_emitted_record_id, "1")
+        self.assertFalse(coordinator.scan_error_emitted)
 
     def test_unlinked_scanned_record_emits_nfc_error_scan_without_activating_record(self):
         coordinator, messages = self.make_coordinator(
