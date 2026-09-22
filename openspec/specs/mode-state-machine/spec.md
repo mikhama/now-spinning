@@ -163,14 +163,14 @@ The system SHALL perform real NFC scan polling only while the current UI mode is
 - **THEN** the system SHALL treat the state as standby for NFC polling eligibility
 
 ### Requirement: Standby NFC scan events preserve last valid record
-During standby NFC polling, the system SHALL keep the last successfully scanned record id as the record ready to play when a tag leaves the field, and SHALL broadcast scan events only when the scanned record changes or an NFC read error occurs.
+During standby NFC polling, the system SHALL keep the last successfully scanned record id as the record ready to play when a tag leaves the field, and SHALL broadcast scan events when the scanned record changes, an NFC read error occurs, or a successful scan recovers from an emitted NFC read error.
 
 #### Scenario: First successful standby scan is emitted
 - **WHEN** standby NFC polling reads record id `1` and no record id has been emitted yet
 - **THEN** the system SHALL broadcast `{"event":"scan","data":{"record_id":"1"}}`
 
 #### Scenario: Same record remains in field
-- **WHEN** standby NFC polling reads record id `1` after record id `1` was already emitted
+- **WHEN** standby NFC polling reads record id `1` after record id `1` was already emitted without an intervening NFC read error
 - **THEN** the system SHALL NOT broadcast another scan event
 
 #### Scenario: Tag leaves field after valid scan
@@ -192,6 +192,13 @@ During standby NFC polling, the system SHALL keep the last successfully scanned 
 - **WHEN** standby NFC polling encounters an NFC read error
 - **THEN** the system SHALL broadcast `{"event":"scan","data":{"record_id":null}}`
 - **AND** the frontend SHALL show the standby NFC error state
+
+#### Scenario: Same record recovers after NFC read error
+- **WHEN** standby NFC polling previously emitted record id `1`
+- **AND** a later NFC read error caused `{"event":"scan","data":{"record_id":null}}` to be emitted
+- **AND** a later successful poll reads record id `1`, with or without intervening no-card polls
+- **THEN** the system SHALL broadcast `{"event":"scan","data":{"record_id":"1"}}`
+- **AND** the frontend SHALL show record id `1` instead of the standby NFC error state
 
 #### Scenario: No-card is not an error
 - **WHEN** standby NFC polling detects no card in the field
