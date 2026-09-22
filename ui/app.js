@@ -1107,17 +1107,32 @@ function resetStylus() {
 function prevRecord() {
     state.retainedLinkRecordId = null;
     var unlinked = getUnlinkedRecords();
-    if (unlinked.length === 0) return;
+    if (unlinked.length === 0) {
+        state.linkRecordIndex = 0;
+        state.linkError = false;
+        render();
+        return;
+    }
     state.linkRecordIndex = (state.linkRecordIndex - 1 + unlinked.length) % unlinked.length;
     state.linkError = false;
     render();
 }
 
 function nextRecord() {
+    var wasRetained = state.retainedLinkRecordId !== null;
     state.retainedLinkRecordId = null;
     var unlinked = getUnlinkedRecords();
-    if (unlinked.length === 0) return;
-    state.linkRecordIndex = (state.linkRecordIndex + 1) % unlinked.length;
+    if (unlinked.length === 0) {
+        state.linkRecordIndex = 0;
+        state.linkError = false;
+        render();
+        return;
+    }
+    if (wasRetained) {
+        state.linkRecordIndex %= unlinked.length;
+    } else {
+        state.linkRecordIndex = (state.linkRecordIndex + 1) % unlinked.length;
+    }
     state.linkError = false;
     render();
 }
