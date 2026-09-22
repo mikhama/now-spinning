@@ -183,6 +183,7 @@ function activateRecord(recordId, options) {
     }) || null;
 
     if (!record) return false;
+    if (scope.requireLinked && !record.linked) return false;
 
     state.currentRecordId = record.id;
     state.currentTrackIndex = 0;
@@ -1228,7 +1229,7 @@ function connectWebSocket() {
                 if (msgData.record_id === null) {
                     clearActiveRecord("nfc");
                 } else {
-                    if (!activateRecord(msgData.record_id, { showInStandby: true })) {
+                    if (!activateRecord(msgData.record_id, { showInStandby: true, requireLinked: true })) {
                         clearActiveRecord("not-found");
                     }
                 }
