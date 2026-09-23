@@ -36,7 +36,12 @@ The screensaver SHALL derive its background color from the current record cover 
 - **THEN** the background and foreground SHALL update from the new cover
 
 ### Requirement: Now-playing content and layout
-The screensaver SHALL show the current track artist and song on separate, centered lines in the middle of the screen. It SHALL use the track's artist when provided and otherwise use the record's artist. The song SHALL be larger than the artist and upright. The lines SHALL have no divider and no cover miniature. The top-right corner SHALL show elapsed playback time. Corner text SHALL match the current status bar's font size and inset.
+The screensaver SHALL show the current track artist and song on separate, centered lines in the middle of the screen. It SHALL use the track's artist when provided and otherwise use the record's artist. The artist SHALL use 5.7rem Gloock and the upright song SHALL use 7.8rem Fraunces. The lines SHALL have no divider and no cover miniature. The top-right corner SHALL show elapsed playback time. All four corner labels SHALL share the status label's DM Mono font, 1.1rem size, weight 400, uppercase style, 0.2em letter spacing, and horizontal inset, with no reduced opacity.
+
+#### Scenario: Corner labels use status typography
+- **WHEN** the screensaver is visible
+- **THEN** its four corner labels SHALL have the same font size, weight, letter spacing, and opacity as the status label
+- **AND** the artist and song SHALL use 5.7rem and 7.8rem font sizes respectively
 
 #### Scenario: Track artist differs from record artist
 - **WHEN** the current track provides an artist that differs from the record artist

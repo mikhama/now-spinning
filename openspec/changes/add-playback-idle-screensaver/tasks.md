@@ -1,7 +1,7 @@
 ## 1. Screensaver UI
 
 - [x] 1.1 Add the full-screen overlay markup with separate artist and song lines, corner labels, and an accessible dismissal target.
-- [x] 1.2 Style the overlay to match the approved preview and current status bar, including overflow marquee and reduced-motion behavior.
+- [x] 1.2 Style the overlay with the current status bar's typography in all four corners, 5.7rem artist and 7.8rem song text, overflow marquee, and reduced-motion behavior.
 
 ## 2. Playback behavior
 

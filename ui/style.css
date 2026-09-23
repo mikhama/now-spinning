@@ -148,13 +148,17 @@ body::before {
     border-bottom: 2px solid var(--ink);
 }
 
-#mode-label {
+#mode-label,
+.screensaver-corners {
     font-family: 'DM Mono', monospace;
     font-size: 1.1rem;
     font-weight: 400;
-    color: var(--ink);
     text-transform: uppercase;
     letter-spacing: 0.2em;
+}
+
+#mode-label {
+    color: var(--ink);
 }
 
 #kiosk-exit-button {
@@ -241,21 +245,10 @@ body::before {
     flex: 0 0 3rem;
     min-width: 0;
     padding: 0 1.25rem;
-    font: 400 1.1rem 'DM Mono', monospace;
-    letter-spacing: 0.2em;
-    text-transform: uppercase;
 }
 
 .screensaver-corners--top {
     padding-bottom: 2px;
-}
-
-#screensaver-time {
-    letter-spacing: 0;
-}
-
-.screensaver-corners--bottom {
-    opacity: 0.8;
 }
 
 #screensaver-album {
@@ -316,12 +309,12 @@ body::before {
 }
 
 .screensaver-artist {
-    font: 400 3.8rem/1.12 'Gloock', serif;
+    font: 400 5.7rem/1.12 'Gloock', serif;
     letter-spacing: -0.035em;
 }
 
 .screensaver-song {
-    font: normal 400 5.2rem/1.16 'Fraunces', serif;
+    font: normal 400 7.8rem/1.16 'Fraunces', serif;
 }
 
 #screensaver-dismiss {

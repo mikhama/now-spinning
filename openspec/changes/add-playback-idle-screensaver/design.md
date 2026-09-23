@@ -32,7 +32,7 @@ Load the current same-origin cover into a 64×64 canvas. Ignore pixels with alph
 
 ### Layout and overflow
 
-Render a dedicated overlay element above the existing UI. Its top and bottom rows reuse the current status bar's 3rem height, 1.25rem horizontal inset, and 1.1rem DM Mono text. The top-left label describes the current side and the top-right shows playback time. Center two separate lines in the middle with a 1.8rem gap, using Gloock 3.8rem for artist and upright Fraunces 5.2rem for song. For either line that exceeds its available width, show a seamless scrolling duplicate separated by a gap. Re-measure after fonts load, on resize, and when the text changes. Respect reduced-motion preference.
+Render a dedicated overlay element above the existing UI. Its top and bottom rows reuse the current status bar's 3rem height and 1.25rem horizontal inset. All four corner labels share the status label's DM Mono 1.1rem, weight 400, uppercase, and 0.2em letter spacing without per-corner overrides or reduced opacity. The top-left label describes the current side and the top-right shows playback time. Center two separate lines in the middle with a 1.8rem gap, using Gloock 5.7rem for artist and upright Fraunces 7.8rem for song. For either line that exceeds its available width, show a seamless scrolling duplicate separated by a gap. Re-measure after fonts load, on resize, and when the text changes. Respect reduced-motion preference.
 
 ## Risks / Trade-offs
 
