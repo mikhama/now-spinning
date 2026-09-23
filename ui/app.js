@@ -33,6 +33,15 @@ var lastRendered = {
 
 var lastReportedBackendMode = null;
 
+var screensaverPlayStartedAt = null;
+var screensaverLastInteractionAt = null;
+var screensaverActivationTimer = null;
+var screensaverClockTimer = null;
+var screensaverClockSeconds = 0;
+var screensaverClockSetAt = null;
+var screensaverPaletteUrl = null;
+var screensaverPaletteCache = Object.create(null);
+
 // ---------------------------------------------------------------------------
 // Mode switching
 // ---------------------------------------------------------------------------
@@ -160,6 +169,7 @@ function clearActiveRecord(standbyError) {
 }
 
 function setMode(nextMode) {
+    var previousMode = state.mode;
     if (state.mode !== nextMode) {
         clearPendingLink();
         state.retainedLinkRecordId = null;
@@ -168,6 +178,11 @@ function setMode(nextMode) {
     if (nextMode !== "play") {
         state.playbackTime = null;
         resetBoardlessPlaybackTiming();
+    }
+    if (previousMode !== "play" && nextMode === "play") {
+        beginScreensaverPlay();
+    } else if (previousMode === "play" && nextMode !== "play") {
+        endScreensaverPlay();
     }
     notifyBackendMode();
 }
@@ -508,6 +523,283 @@ function getPlayTrackLabel(record, track) {
 }
 
 // ---------------------------------------------------------------------------
+// Playback screensaver
+// ---------------------------------------------------------------------------
+
+function formatScreensaverTime(seconds) {
+    var total = Math.max(0, Math.floor(seconds));
+    return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
+}
+
+function setScreensaverClock(playbackTime) {
+    if (!playbackTime) return;
+    screensaverClockSeconds = parseDurationSeconds(playbackTime);
+    screensaverClockSetAt = Date.now();
+    renderScreensaverTime();
+}
+
+function renderScreensaverTime() {
+    var timeEl = document.getElementById("screensaver-time");
+    var elapsed;
+    if (!timeEl || state.mode !== "play") return;
+    elapsed = screensaverClockSeconds;
+    if (screensaverClockSetAt !== null) {
+        elapsed += Math.floor((Date.now() - screensaverClockSetAt) / 1000);
+    }
+    timeEl.textContent = formatScreensaverTime(elapsed);
+}
+
+function beginScreensaverPlay() {
+    var now = Date.now();
+    screensaverPlayStartedAt = now;
+    screensaverLastInteractionAt = now;
+    screensaverClockSeconds = state.playbackTime ? parseDurationSeconds(state.playbackTime) : 0;
+    screensaverClockSetAt = now;
+    scheduleScreensaverActivation();
+}
+
+function endScreensaverPlay() {
+    screensaverPlayStartedAt = null;
+    screensaverLastInteractionAt = null;
+    screensaverClockSetAt = null;
+    clearTimeout(screensaverActivationTimer);
+    screensaverActivationTimer = null;
+    hideScreensaver();
+}
+
+function screensaverDeadline() {
+    if (screensaverPlayStartedAt === null || screensaverLastInteractionAt === null) return null;
+    return Math.max(screensaverPlayStartedAt, screensaverLastInteractionAt) + 10000;
+}
+
+function scheduleScreensaverActivation() {
+    var deadline = screensaverDeadline();
+    clearTimeout(screensaverActivationTimer);
+    screensaverActivationTimer = null;
+    if (state.mode !== "play" || deadline === null) return;
+    if (!document.getElementById("play-screensaver").hidden) return;
+    screensaverActivationTimer = setTimeout(function () {
+        screensaverActivationTimer = null;
+        renderScreensaver();
+    }, Math.max(0, deadline - Date.now()));
+}
+
+function hideScreensaver() {
+    var overlay = document.getElementById("play-screensaver");
+    if (overlay) overlay.hidden = true;
+    clearInterval(screensaverClockTimer);
+    screensaverClockTimer = null;
+}
+
+function dismissScreensaver(event) {
+    if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+    }
+    screensaverLastInteractionAt = Date.now();
+    hideScreensaver();
+    scheduleScreensaverActivation();
+}
+
+function finishScreensaverTouch() {
+    // A drag or canceled touch may not produce a click. Keep the overlay in
+    // place through the current event so the touch cannot reach Play controls.
+    setTimeout(function () {
+        var overlay = document.getElementById("play-screensaver");
+        if (overlay && !overlay.hidden) dismissScreensaver();
+    }, 0);
+}
+
+function noteScreensaverInteraction() {
+    if (state.mode !== "play") return;
+    screensaverLastInteractionAt = Date.now();
+    scheduleScreensaverActivation();
+}
+
+function getScreensaverContent() {
+    var record = getCurrentRecord();
+    var side = getSideForIndex(record, state.currentSideIndex);
+    var track = side && side.tracks ? (side.tracks[state.currentTrackIndex] || side.tracks[0]) : null;
+    var song = normalizeTrackLabelValue(track && track.title);
+
+    if (!record || !song) return null;
+
+    return {
+        artist: normalizeTrackLabelValue(track.artist) || normalizeTrackLabelValue(record.artist),
+        song: song,
+        side: getSideLabel(side),
+        album: record.title || "",
+        cover: coverImageUrl(record),
+    };
+}
+
+function measureScreensaverLine(line) {
+    var primary = line.querySelector(".screensaver-copy--primary");
+    var textWidth;
+    line.classList.remove("is-scrolling");
+    textWidth = primary.getBoundingClientRect().width;
+    if (textWidth > line.clientWidth) {
+        line.style.setProperty("--screensaver-scroll-duration", Math.max(18, (textWidth + 80) / 60) + "s");
+        line.classList.add("is-scrolling");
+    }
+}
+
+function remeasureScreensaverLines() {
+    var overlay = document.getElementById("play-screensaver");
+    if (!overlay || overlay.hidden) return;
+    measureScreensaverLine(document.getElementById("screensaver-artist-line"));
+    measureScreensaverLine(document.getElementById("screensaver-song-line"));
+}
+
+function setScreensaverLine(id, value) {
+    var line = document.getElementById(id);
+    var primary = line.querySelector(".screensaver-copy--primary");
+    var duplicate = line.querySelector(".screensaver-copy--duplicate");
+    if (primary.textContent === value && duplicate.textContent === value) return;
+    primary.textContent = value;
+    duplicate.textContent = value;
+    measureScreensaverLine(line);
+}
+
+function screensaverRelativeLuminance(rgb) {
+    var linear = rgb.map(function (channel) {
+        var value = channel / 255;
+        return value <= 0.04045 ? value / 12.92 : Math.pow((value + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
+}
+
+function sampleScreensaverPalette(image) {
+    var canvas = document.createElement("canvas");
+    var context;
+    var pixels;
+    var buckets = new Map();
+    var winner = null;
+    var i;
+    var key;
+    var group;
+    var rgb;
+    var luminance;
+
+    canvas.width = 64;
+    canvas.height = 64;
+    context = canvas.getContext("2d", { willReadFrequently: true });
+    if (!context) return null;
+    context.drawImage(image, 0, 0, 64, 64);
+    pixels = context.getImageData(0, 0, 64, 64).data;
+
+    for (i = 0; i < pixels.length; i += 4) {
+        if (pixels[i + 3] < 200) continue;
+        key = [pixels[i], pixels[i + 1], pixels[i + 2]].map(function (channel) {
+            return Math.round(channel / 64) * 64;
+        }).join(",");
+        group = buckets.get(key);
+        if (!group) {
+            group = { count: 0, red: 0, green: 0, blue: 0 };
+            buckets.set(key, group);
+        }
+        group.count++;
+        group.red += pixels[i];
+        group.green += pixels[i + 1];
+        group.blue += pixels[i + 2];
+        if (!winner || group.count > winner.count) winner = group;
+    }
+
+    if (!winner) return null;
+    rgb = [winner.red, winner.green, winner.blue].map(function (sum) {
+        return Math.round(sum / winner.count);
+    });
+    luminance = screensaverRelativeLuminance(rgb);
+    return {
+        background: "rgb(" + rgb.join(", ") + ")",
+        foreground: 1.05 / (luminance + 0.05) > (luminance + 0.05) / 0.05 ? "#fff" : "#000",
+    };
+}
+
+function applyScreensaverPalette(palette) {
+    var overlay = document.getElementById("play-screensaver");
+    if (palette) {
+        overlay.style.setProperty("--screensaver-background", palette.background);
+        overlay.style.setProperty("--screensaver-foreground", palette.foreground);
+    } else {
+        overlay.style.removeProperty("--screensaver-background");
+        overlay.style.removeProperty("--screensaver-foreground");
+    }
+}
+
+function updateScreensaverPalette(url) {
+    var image;
+    if (url === screensaverPaletteUrl) return;
+    screensaverPaletteUrl = url;
+    applyScreensaverPalette(null);
+    if (!url) return;
+    if (Object.prototype.hasOwnProperty.call(screensaverPaletteCache, url)) {
+        applyScreensaverPalette(screensaverPaletteCache[url]);
+        return;
+    }
+
+    image = new Image();
+    image.onload = function () {
+        var palette = null;
+        try {
+            palette = sampleScreensaverPalette(image);
+        } catch (error) {
+            console.warn("Could not read cover colors:", error);
+        }
+        screensaverPaletteCache[url] = palette;
+        if (screensaverPaletteUrl === url) applyScreensaverPalette(palette);
+    };
+    image.onerror = function () {
+        screensaverPaletteCache[url] = null;
+        if (screensaverPaletteUrl === url) applyScreensaverPalette(null);
+    };
+    image.src = url;
+}
+
+function renderScreensaver() {
+    var overlay = document.getElementById("play-screensaver");
+    var content;
+    var opening;
+    var deadline;
+
+    if (!overlay || state.mode !== "play") {
+        hideScreensaver();
+        return;
+    }
+
+    deadline = screensaverDeadline();
+    opening = overlay.hidden;
+    content = getScreensaverContent();
+    if (opening && (deadline === null || Date.now() < deadline)) {
+        if (content) updateScreensaverPalette(content.cover);
+        return;
+    }
+
+    if (!content) {
+        hideScreensaver();
+        return;
+    }
+
+    if (opening) {
+        clearTimeout(screensaverActivationTimer);
+        screensaverActivationTimer = null;
+        overlay.hidden = false;
+    }
+
+    document.getElementById("screensaver-side").textContent = "Now spinning · Side " + content.side;
+    document.getElementById("screensaver-album").textContent = content.album;
+    setScreensaverLine("screensaver-artist-line", content.artist);
+    setScreensaverLine("screensaver-song-line", content.song);
+    renderScreensaverTime();
+    updateScreensaverPalette(content.cover);
+
+    if (opening) {
+        remeasureScreensaverLines();
+        screensaverClockTimer = setInterval(renderScreensaverTime, 1000);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------
 
@@ -821,6 +1113,8 @@ function render(options) {
             lastRendered.section = sectionInputs;
         }
     }
+
+    renderScreensaver();
 }
 
 function renderStandby() {
@@ -1284,6 +1578,7 @@ function connectWebSocket() {
                             setMode("play");
                             preserveCurrentSelectionForPlayStart();
                         }
+                        setScreensaverClock(state.playbackTime);
                         refreshBoardlessPlaybackSelection();
                         render();
                     } else if (msgData.status === "stop" && state.mode === "play") {
@@ -1403,7 +1698,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
         // Recompute overflow state after fonts finish loading without rewriting text.
         if (document.fonts && document.fonts.ready) {
-            document.fonts.ready.then(function () { remeasureActiveMarquees(); });
+            document.fonts.ready.then(function () {
+                remeasureActiveMarquees();
+                remeasureScreensaverLines();
+            });
         }
     });
 
@@ -1411,8 +1709,16 @@ document.addEventListener("DOMContentLoaded", function () {
     var resizeTimer;
     window.addEventListener('resize', function () {
         clearTimeout(resizeTimer);
-        resizeTimer = setTimeout(function () { remeasureActiveMarquees(); }, 150);
+        resizeTimer = setTimeout(function () {
+            remeasureActiveMarquees();
+            remeasureScreensaverLines();
+        }, 150);
     });
+
+    document.addEventListener("pointerdown", noteScreensaverInteraction, true);
+    document.getElementById("screensaver-dismiss").addEventListener("click", dismissScreensaver);
+    document.getElementById("screensaver-dismiss").addEventListener("pointerup", finishScreensaverTouch);
+    document.getElementById("screensaver-dismiss").addEventListener("pointercancel", finishScreensaverTouch);
 
     window.addEventListener("hashchange", function () {
         // Re-fetch data to reset any error overrides before applying hash
