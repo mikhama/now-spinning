@@ -274,7 +274,8 @@ class LinkingApiTestCase(unittest.TestCase):
         source = app_js.read_text()
 
         self.assertIn("if (msgData.record_id === null)", source)
-        self.assertIn('clearActiveRecord("nfc")', source)
+        self.assertIn('state.standbyError = "nfc"', source)
+        self.assertIn('state.standbyRecordVisible = false', source)
 
     def test_frontend_unlinked_scan_payload_uses_not_found_state(self):
         app_js = Path(__file__).resolve().parents[1] / "ui" / "app.js"

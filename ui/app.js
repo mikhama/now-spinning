@@ -185,10 +185,12 @@ function activateRecord(recordId, options) {
     if (!record) return false;
     if (scope.requireLinked && !record.linked) return false;
 
+    if (state.currentRecordId !== record.id) {
+        state.currentTrackIndex = 0;
+        state.currentSideIndex = 0;
+        resetBoardlessPlaybackTiming();
+    }
     state.currentRecordId = record.id;
-    state.currentTrackIndex = 0;
-    state.currentSideIndex = 0;
-    resetBoardlessPlaybackTiming();
 
     if (scope.showInStandby !== undefined) {
         state.standbyRecordVisible = scope.showInStandby;
@@ -422,20 +424,24 @@ function preserveCurrentSelectionForPlayStart() {
     state.manualPlaybackOffsetSeconds = getTrackStartSeconds(record, state.currentSideIndex, state.currentTrackIndex);
 }
 
-function advanceSideIfStoppedNearCurrentSideEnd() {
+function advanceSideIfStoppedAfterPlayback() {
     var record = getCurrentRecord();
     var effectiveSeconds = getEffectivePlaybackSeconds();
     var currentSideIndex;
     var side;
+    var sideDuration;
     var sideEnd;
+    var playedAtLeastOneMinute = state.boardlessElapsedSeconds !== null && state.boardlessElapsedSeconds >= 60;
 
-    if (!record || !record.sides || record.sides.length === 0 || effectiveSeconds === null) return false;
+    if (!record || !record.sides || record.sides.length === 0) return false;
 
     currentSideIndex = clampSideIndex(record, state.currentSideIndex);
     side = getSideForIndex(record, currentSideIndex);
-    sideEnd = getSideStartSeconds(record, currentSideIndex) + getSideDurationSeconds(side);
+    sideDuration = getSideDurationSeconds(side);
+    sideEnd = getSideStartSeconds(record, currentSideIndex) + sideDuration;
 
-    if (effectiveSeconds < sideEnd - 20) return false;
+    if (!playedAtLeastOneMinute &&
+        (effectiveSeconds === null || sideDuration <= 0 || effectiveSeconds < sideEnd - 20)) return false;
 
     state.currentSideIndex = wrapSideIndex(record, currentSideIndex + 1);
     state.currentTrackIndex = 0;
@@ -559,11 +565,11 @@ function getActiveActionGroupId() {
         case "play":
             return getCurrentRecord() ? "actions-play" : null;
         case "link":
-            return getLinkRecord() ? "actions-link" : "actions-standby";
+            return getLinkRecord() ? "actions-link" : "actions-empty";
         case "re-link":
-            return getLinkedRecords().length > 0 ? "actions-re-link" : "actions-standby";
+            return getLinkedRecords().length > 0 ? "actions-re-link" : "actions-empty";
         case "stylus":
-            return state.styli.length > 0 ? "actions-stylus" : "actions-standby";
+            return state.styli.length > 0 ? "actions-stylus" : "actions-empty";
         case "sync":
             return "actions-sync";
         default:
@@ -1203,14 +1209,20 @@ function switchSide() {
     var selectedTrackIndex = state.currentTrackIndex;
     var previousSideIndex = state.currentSideIndex;
     var previousEffectiveSeconds = getEffectivePlaybackSeconds();
+    var previousSideStart;
+    var previousSideDuration;
     var previousSideEnd;
+    var selectedSideStart;
     if (!record || !record.sides || record.sides.length === 0) return;
 
     state.currentSideIndex = (state.currentSideIndex + 1) % record.sides.length;
     if (state.mode === "play") {
-        previousSideEnd = getSideStartSeconds(record, previousSideIndex) + getSideDurationSeconds(getSideForIndex(record, previousSideIndex));
-        if (previousEffectiveSeconds !== null && previousEffectiveSeconds >= previousSideEnd) {
-            state.manualPlaybackOffsetSeconds = getSideStartSeconds(record, state.currentSideIndex);
+        previousSideStart = getSideStartSeconds(record, previousSideIndex);
+        previousSideDuration = getSideDurationSeconds(getSideForIndex(record, previousSideIndex));
+        previousSideEnd = previousSideStart + previousSideDuration;
+        selectedSideStart = getSideStartSeconds(record, state.currentSideIndex);
+        if (previousEffectiveSeconds !== null && previousSideDuration > 0 && previousEffectiveSeconds >= previousSideEnd) {
+            setManualPlaybackOffset(selectedSideStart + previousEffectiveSeconds - previousSideStart);
             refreshBoardlessPlaybackSelection();
         } else {
             state.currentTrackIndex = clampTrackIndex(record, state.currentSideIndex, selectedTrackIndex);
@@ -1242,7 +1254,8 @@ function connectWebSocket() {
                 break;
             case "scan":
                 if (msgData.record_id === null) {
-                    clearActiveRecord("nfc");
+                    state.standbyError = "nfc";
+                    state.standbyRecordVisible = false;
                 } else {
                     if (!activateRecord(msgData.record_id, { showInStandby: true, requireLinked: true })) {
                         clearActiveRecord("not-found");
@@ -1274,7 +1287,7 @@ function connectWebSocket() {
                         refreshBoardlessPlaybackSelection();
                         render();
                     } else if (msgData.status === "stop" && state.mode === "play") {
-                        advanceSideIfStoppedNearCurrentSideEnd();
+                        advanceSideIfStoppedAfterPlayback();
                         state.currentTrackIndex = 0;
                         setMode("standby");
                         render();
@@ -1432,7 +1445,7 @@ document.addEventListener("DOMContentLoaded", function () {
     document.getElementById("btn-reset-stylus").addEventListener("click", resetStylus);
 
     // Mode buttons
-    ["btn-mode-standby", "btn-mode-link", "btn-mode-re-link", "btn-mode-stylus", "btn-mode-sync"].forEach(function (id) {
+    ["btn-mode-standby", "btn-mode-empty", "btn-mode-link", "btn-mode-re-link", "btn-mode-stylus", "btn-mode-sync"].forEach(function (id) {
         document.getElementById(id).addEventListener("click", nextMode);
     });
 
