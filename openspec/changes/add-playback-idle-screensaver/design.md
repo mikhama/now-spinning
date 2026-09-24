@@ -34,7 +34,7 @@ For a cover without a substantial colorful family, retain the original neutral f
 
 ### Layout and overflow
 
-Render a dedicated overlay element above the existing UI. Its top and bottom rows reuse the current status bar's 3rem height and 1.25rem horizontal inset. All four corner labels share the status label's DM Mono 1.1rem, weight 400, uppercase, and 0.2em letter spacing without per-corner overrides or reduced opacity. The top-left label describes the current side and the top-right shows playback time. Center two separate lines in the middle with a 1.8rem gap, using Gloock 5.7rem for artist and upright Fraunces 7.8rem for song. For either line that exceeds its available width, show a seamless scrolling duplicate separated by a gap. Re-measure after fonts load, on resize, and when the text changes. Respect reduced-motion preference.
+Render a dedicated overlay element above the existing UI. Its top and bottom rows reuse the current status bar's 3rem height and 1.25rem horizontal inset. All four corner labels share the status label's DM Mono 1.1rem, weight 400, uppercase, and 0.2em letter spacing without per-corner overrides or reduced opacity. The top-left label uses the normal Play status format, `Play MM:SS`, with the advancing screensaver clock; the top-right label is only `Side A/B` for the current side. Center two separate lines in the middle with a 1.8rem gap. The artist uses normal 700 4.8rem/1.12 Gloock with zero letter spacing. The song uses normal 400 8.4rem/1.16 Fraunces with zero letter spacing. For either line that exceeds its available width, show a seamless scrolling duplicate separated by a gap. Re-measure after fonts load, on resize, and when the text changes. Respect reduced-motion preference.
 
 ## Risks / Trade-offs
 
@@ -45,7 +45,7 @@ Render a dedicated overlay element above the existing UI. Its top and bottom row
 
 ## Migration Plan
 
-No data migration is needed. The UI files deploy together; removing the overlay markup, styles, and client state reverts the change. Remove the temporary `previews/` directory and the `examples/` color experiments once their implementations are transferred into the UI.
+No data migration is needed. The UI files deploy together; removing the overlay markup, styles, and client state reverts the change. Remove the temporary `previews/` directory and the `examples/` color and font experiments once their implementations are transferred into the UI.
 
 ## Open Questions
 

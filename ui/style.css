@@ -309,12 +309,13 @@ body::before {
 }
 
 .screensaver-artist {
-    font: 400 5.7rem/1.12 'Gloock', serif;
-    letter-spacing: -0.035em;
+    font: normal 700 4.8rem/1.12 "Gloock", serif;
+    letter-spacing: 0em;
 }
 
 .screensaver-song {
-    font: normal 400 7.8rem/1.16 'Fraunces', serif;
+    font: normal 400 8.4rem/1.16 "Fraunces", serif;
+    letter-spacing: 0em;
 }
 
 #screensaver-dismiss {

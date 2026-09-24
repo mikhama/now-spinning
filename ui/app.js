@@ -539,14 +539,14 @@ function setScreensaverClock(playbackTime) {
 }
 
 function renderScreensaverTime() {
-    var timeEl = document.getElementById("screensaver-time");
+    var timeEl = document.getElementById("screensaver-play-status");
     var elapsed;
     if (!timeEl || state.mode !== "play") return;
     elapsed = screensaverClockSeconds;
     if (screensaverClockSetAt !== null) {
         elapsed += Math.floor((Date.now() - screensaverClockSetAt) / 1000);
     }
-    timeEl.textContent = formatScreensaverTime(elapsed);
+    timeEl.textContent = "Play " + formatScreensaverTime(elapsed);
 }
 
 function beginScreensaverPlay() {
@@ -869,7 +869,7 @@ function renderScreensaver() {
         overlay.hidden = false;
     }
 
-    document.getElementById("screensaver-side").textContent = "Now spinning · Side " + content.side;
+    document.getElementById("screensaver-side").textContent = "Side " + content.side;
     document.getElementById("screensaver-album").textContent = content.album;
     setScreensaverLine("screensaver-artist-line", content.artist);
     setScreensaverLine("screensaver-song-line", content.song);

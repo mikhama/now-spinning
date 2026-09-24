@@ -43,12 +43,21 @@ If eligible pixels within 30° of the winning center cover at least 15% of the o
 - **THEN** the background and foreground SHALL update from the new cover
 
 ### Requirement: Now-playing content and layout
-The screensaver SHALL show the current track artist and song on separate, centered lines in the middle of the screen. It SHALL use the track's artist when provided and otherwise use the record's artist. The artist SHALL use 5.7rem Gloock and the upright song SHALL use 7.8rem Fraunces. The lines SHALL have no divider and no cover miniature. The top-right corner SHALL show elapsed playback time. All four corner labels SHALL share the status label's DM Mono font, 1.1rem size, weight 400, uppercase style, 0.2em letter spacing, and horizontal inset, with no reduced opacity.
+The screensaver SHALL show the current track artist and song on separate, centered lines in the middle of the screen. It SHALL use the track's artist when provided and otherwise use the record's artist. The artist SHALL use normal 700 4.8rem/1.12 Gloock with 0em letter spacing. The song SHALL use upright 400 8.4rem/1.16 Fraunces with 0em letter spacing. The lines SHALL have no divider and no cover miniature. The top-left corner SHALL show `Play` and elapsed playback time in the same `Play MM:SS` format as the normal Play status label. The top-right corner SHALL show only the current `Side A/B` label. All four corner labels SHALL share the status label's DM Mono font, 1.1rem size, weight 400, uppercase style, 0.2em letter spacing, and horizontal inset, with no reduced opacity.
 
 #### Scenario: Corner labels use status typography
 - **WHEN** the screensaver is visible
 - **THEN** its four corner labels SHALL have the same font size, weight, letter spacing, and opacity as the status label
-- **AND** the artist and song SHALL use 5.7rem and 7.8rem font sizes respectively
+- **AND** the artist SHALL use 4.8rem bold Gloock and the song SHALL use 8.4rem regular Fraunces, both upright with zero letter spacing
+
+#### Scenario: Top corners show Play status and side
+- **WHEN** the screensaver is visible during Play on side B at elapsed time `01:24`
+- **THEN** the top-left corner SHALL display `PLAY 01:24`
+- **AND** the top-right corner SHALL display `SIDE B` without a `Now spinning` prefix
+
+#### Scenario: Side changes while screensaver is visible
+- **WHEN** the selected side changes from A to B during Play
+- **THEN** the top-right corner SHALL update from `SIDE A` to `SIDE B`
 
 #### Scenario: Track artist differs from record artist
 - **WHEN** the current track provides an artist that differs from the record artist
@@ -60,7 +69,7 @@ The screensaver SHALL show the current track artist and song on separate, center
 
 #### Scenario: Playback time advances
 - **WHEN** the screensaver is visible during Play
-- **THEN** its top-right elapsed time SHALL advance and use the latest server playback time when available
+- **THEN** its top-left elapsed time SHALL advance and use the latest server playback time when available
 
 #### Scenario: Track changes
 - **WHEN** the selected track changes during Play
