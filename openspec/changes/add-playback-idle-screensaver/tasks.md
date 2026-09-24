@@ -8,7 +8,9 @@
 - [x] 2.1 Add Play-only idle timing and touch dismissal that resets the 10-second countdown and prevents touches from activating underlying controls.
 - [x] 2.2 Bind the overlay to the selected track artist, song, album, side, and advancing playback time.
 - [x] 2.3 Compute and cache a dominant color from each current cover and select black or white text by contrast, with a fallback for unreadable covers.
+- [x] 2.4 Replace the primary RGB bucket palette with the automatically selected bright hue family, retaining the RGB bucket fallback for covers without a substantial colorful family.
 
 ## 3. Finish
 
 - [x] 3.1 Remove the temporary `previews/` directory after transferring its implementation into the UI.
+- [x] 3.2 Remove the temporary `examples/` color experiments after transferring the selected algorithm into the UI.

@@ -6,10 +6,11 @@ During playback, the current Play view remains static and small on the turntable
 
 - Show a full-screen screensaver after Play has been active for 10 seconds and the display has received no touch for 10 seconds.
 - Dismiss it on touch and start a new 10-second inactivity period; leave it hidden outside Play.
-- Derive the background from the current cover automatically and choose black or white text by contrast, without record-specific colors.
+- Derive the background automatically from the cover's strongest colorful hue family, using a bright representative of that family. Fall back to the existing RGB bucket result for covers without a substantial colorful region, and choose black or white text by contrast. Do not use record-specific colors.
 - Display the current track's artist when provided, otherwise the record artist, with the song on a separate, larger upright line. Scroll either line when its text exceeds the available width.
 - Show elapsed playback time in the upper-right corner, with corner typography and insets matching the current status bar; remove the cover miniature and divider from the preview design.
 - Remove the temporary `previews/` directory after the feature is implemented.
+- Remove the temporary `examples/` color experiments after transferring the selected algorithm into the UI.
 
 ## Capabilities
 

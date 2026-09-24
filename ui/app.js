@@ -669,15 +669,66 @@ function screensaverRelativeLuminance(rgb) {
     return 0.2126 * linear[0] + 0.7152 * linear[1] + 0.0722 * linear[2];
 }
 
+function screensaverRgbToHsv(red, green, blue) {
+    var high = Math.max(red, green, blue);
+    var low = Math.min(red, green, blue);
+    var spread = high - low;
+    var hue = 0;
+
+    if (spread) {
+        if (high === red) hue = 60 * (((green - blue) / spread) % 6);
+        else if (high === green) hue = 60 * ((blue - red) / spread + 2);
+        else hue = 60 * ((red - green) / spread + 4);
+    }
+
+    return {
+        hue: (hue + 360) % 360,
+        saturation: high ? spread / high : 0,
+        value: high / 255,
+    };
+}
+
+function screensaverHueDistance(first, second) {
+    return Math.abs(((first - second + 540) % 360) - 180);
+}
+
+function screensaverPercentile(values, fraction) {
+    values.sort(function (first, second) { return first - second; });
+    return values[Math.round((values.length - 1) * fraction)];
+}
+
+function screensaverHsvToRgb(hue, saturation, value) {
+    var chroma = value * saturation;
+    var second = chroma * (1 - Math.abs((hue / 60) % 2 - 1));
+    var offset = value - chroma;
+    var color = hue < 60 ? [chroma, second, 0]
+        : hue < 120 ? [second, chroma, 0]
+        : hue < 180 ? [0, chroma, second]
+        : hue < 240 ? [0, second, chroma]
+        : hue < 300 ? [second, 0, chroma]
+        : [chroma, 0, second];
+    return color.map(function (channel) { return Math.round((channel + offset) * 255); });
+}
+
 function sampleScreensaverPalette(image) {
     var canvas = document.createElement("canvas");
     var context;
     var pixels;
     var buckets = new Map();
     var winner = null;
+    var eligible = [];
+    var selected = [];
+    var opaqueCount = 0;
+    var winningHue = 0;
+    var winningScore = -1;
     var i;
+    var j;
     var key;
     var group;
+    var hsv;
+    var center;
+    var score;
+    var distance;
     var rgb;
     var luminance;
 
@@ -690,6 +741,7 @@ function sampleScreensaverPalette(image) {
 
     for (i = 0; i < pixels.length; i += 4) {
         if (pixels[i + 3] < 200) continue;
+        opaqueCount++;
         key = [pixels[i], pixels[i + 1], pixels[i + 2]].map(function (channel) {
             return Math.round(channel / 64) * 64;
         }).join(",");
@@ -703,12 +755,43 @@ function sampleScreensaverPalette(image) {
         group.green += pixels[i + 1];
         group.blue += pixels[i + 2];
         if (!winner || group.count > winner.count) winner = group;
+
+        hsv = screensaverRgbToHsv(pixels[i], pixels[i + 1], pixels[i + 2]);
+        if (hsv.saturation >= 0.28 && hsv.value >= 0.30) eligible.push(hsv);
     }
 
     if (!winner) return null;
     rgb = [winner.red, winner.green, winner.blue].map(function (sum) {
         return Math.round(sum / winner.count);
     });
+
+    if (eligible.length) {
+        for (center = 0; center < 360; center += 5) {
+            score = 0;
+            for (j = 0; j < eligible.length; j++) {
+                distance = screensaverHueDistance(eligible[j].hue, center);
+                score += eligible[j].saturation * Math.max(0, 1 - distance / 30);
+            }
+            if (score > winningScore) {
+                winningScore = score;
+                winningHue = center;
+            }
+        }
+
+        selected = eligible.filter(function (pixel) {
+            return screensaverHueDistance(pixel.hue, winningHue) <= 30;
+        });
+        if (selected.length >= Math.ceil(opaqueCount * 0.15)) {
+            // Independent upper percentiles keep the dominant hue vivid without
+            // letting dark or washed-out regions mute the background.
+            rgb = screensaverHsvToRgb(
+                winningHue,
+                screensaverPercentile(selected.map(function (pixel) { return pixel.saturation; }), 0.85),
+                screensaverPercentile(selected.map(function (pixel) { return pixel.value; }), 0.85)
+            );
+        }
+    }
+
     luminance = screensaverRelativeLuminance(rgb);
     return {
         background: "rgb(" + rgb.join(", ") + ")",

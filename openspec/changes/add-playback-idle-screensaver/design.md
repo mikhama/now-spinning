@@ -1,6 +1,6 @@
 ## Context
 
-The UI is a fixed 800×480, three-file browser app. `setMode` owns mode transitions, `render` updates the Play view, WebSocket `status` messages provide elapsed playback time, and track selection already resolves a current side and track. Album covers are served from the same origin. The approved preview established the visual layout and a 64×64 canvas color sampling method.
+The UI is a fixed 800×480, three-file browser app. `setMode` owns mode transitions, `render` updates the Play view, WebSocket `status` messages provide elapsed playback time, and track selection already resolves a current side and track. Album covers are served from the same origin. The approved preview established the visual layout. A cover experiment showed that a single RGB bucket can miss a prominent color when its shades are spread across buckets, so the palette selection uses a hue family from the same 64×64 canvas sample.
 
 ## Goals / Non-Goals
 
@@ -28,7 +28,9 @@ Read the active record, side, and track from existing state when the overlay ope
 
 ### Cover palette
 
-Load the current same-origin cover into a 64×64 canvas. Ignore pixels with alpha below 200, round each RGB channel to a bucket of 64, and average the original RGB values in the most common bucket. Compute WCAG relative luminance for that color and select whichever of black or white has the larger contrast ratio. Cache the result by cover URL. A missing or unreadable cover uses the app's existing paper and ink colors; a stale image load cannot recolor a newer record.
+Load the current same-origin cover into a 64×64 canvas and ignore pixels with alpha below 200. Convert each remaining RGB pixel to HSV. Eligible colorful pixels have saturation at least 0.28 and value at least 0.30. Score hue centers from 0° through 355° in 5° steps: each eligible pixel contributes its saturation multiplied by `max(0, 1 - circular hue distance / 30°)`. Select eligible pixels within 30° of the highest-scoring center. If those selected pixels occupy at least 15% of the opaque sample, combine that center with the selected pixels' independent 85th-percentile saturation and value, then convert the HSV color back to rounded RGB.
+
+For a cover without a substantial colorful family, retain the original neutral fallback: round each RGB channel to a bucket of 64 and average the original RGB values in the most common bucket. If there are no usable pixels or the cover cannot be read, use the app's paper and ink colors. Compute WCAG relative luminance for a derived color and choose whichever of black or white has the larger contrast ratio. Cache the result by cover URL; a stale image load cannot recolor a newer record. No color is keyed to an album, record, or label.
 
 ### Layout and overflow
 
@@ -37,12 +39,13 @@ Render a dedicated overlay element above the existing UI. Its top and bottom row
 ## Risks / Trade-offs
 
 - [Missing or unreadable cover] → Show the established paper/ink palette until a valid cover can be sampled.
+- [A small vivid accent dominates the hue score] → Require the winning family to cover at least 15% of opaque pixels; otherwise use the neutral RGB bucket result.
 - [Browser reload during playback] → Start the UI's 10-second idle countdown on entering Play, avoiding an immediate overlay over a newly opened screen.
 - [Track or cover changes during asynchronous image loading] → Check the active cover URL before applying the computed palette.
 
 ## Migration Plan
 
-No data migration is needed. The UI files deploy together; removing the overlay markup, styles, and client state reverts the change. Remove the temporary `previews/` directory once the feature is implemented.
+No data migration is needed. The UI files deploy together; removing the overlay markup, styles, and client state reverts the change. Remove the temporary `previews/` directory and the `examples/` color experiments once their implementations are transferred into the UI.
 
 ## Open Questions
 
