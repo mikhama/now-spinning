@@ -636,10 +636,16 @@ function getScreensaverContent() {
 function measureScreensaverLine(line) {
     var primary = line.querySelector(".screensaver-copy--primary");
     var textWidth;
+    var gap;
+    var distance;
     line.classList.remove("is-scrolling");
     textWidth = primary.getBoundingClientRect().width;
     if (textWidth > line.clientWidth) {
-        line.style.setProperty("--screensaver-scroll-duration", Math.max(18, (textWidth + 80) / 60) + "s");
+        gap = Math.round(line.clientWidth * 0.5);
+        distance = textWidth + gap;
+        line.style.setProperty("--screensaver-scroll-gap", gap + "px");
+        line.style.setProperty("--screensaver-scroll-distance", -distance + "px");
+        line.style.setProperty("--screensaver-scroll-duration", Math.max(18, distance / 60) + "s");
         line.classList.add("is-scrolling");
     }
 }
@@ -655,10 +661,11 @@ function setScreensaverLine(id, value) {
     var line = document.getElementById(id);
     var primary = line.querySelector(".screensaver-copy--primary");
     var duplicate = line.querySelector(".screensaver-copy--duplicate");
-    if (primary.textContent === value && duplicate.textContent === value) return;
+    if (primary.textContent === value && duplicate.textContent === value) return false;
     primary.textContent = value;
     duplicate.textContent = value;
     measureScreensaverLine(line);
+    return true;
 }
 
 function screensaverRelativeLuminance(rgb) {
@@ -844,6 +851,8 @@ function renderScreensaver() {
     var content;
     var opening;
     var deadline;
+    var artistChanged;
+    var songChanged;
 
     if (!overlay || state.mode !== "play") {
         hideScreensaver();
@@ -871,13 +880,22 @@ function renderScreensaver() {
 
     document.getElementById("screensaver-side").textContent = "Side " + content.side;
     document.getElementById("screensaver-album").textContent = content.album;
-    setScreensaverLine("screensaver-artist-line", content.artist);
-    setScreensaverLine("screensaver-song-line", content.song);
+    artistChanged = setScreensaverLine("screensaver-artist-line", content.artist);
+    songChanged = setScreensaverLine("screensaver-song-line", content.song);
     renderScreensaverTime();
     updateScreensaverPalette(content.cover);
 
-    if (opening) {
+    if (opening || artistChanged || songChanged) {
         remeasureScreensaverLines();
+        if (document.fonts && document.fonts.load) {
+            Promise.all([
+                document.fonts.load('700 1rem "Roboto Serif"', content.artist || "A"),
+                document.fonts.load('300 1rem "Roboto Serif"', content.song || "A"),
+            ]).then(remeasureScreensaverLines, remeasureScreensaverLines);
+        }
+    }
+
+    if (opening) {
         screensaverClockTimer = setInterval(renderScreensaverTime, 1000);
     }
 }

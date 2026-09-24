@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Screensaver font playground</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <style>
+    :root {
+      --bcd-color-vivid-violet: #542dff;
+      --bcd-color-vivid-violet-hover: #2a1780;
+      --bcd-color-focus: #007bff;
+    }
+    @font-face {
+      font-family: "Gloock";
+      font-style: normal;
+      font-weight: 400;
+      src: url("../ui/fonts/gloock-400-latin.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "Fraunces";
+      font-style: normal;
+      font-weight: 100 900;
+      src: url("../ui/fonts/fraunces-normal-latin.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "DM Mono";
+      font-style: normal;
+      font-weight: 400;
+      src: url("../ui/fonts/dm-mono-400-latin.woff2") format("woff2");
+    }
+    @font-face {
+      font-family: "Roboto Serif";
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+      src: url("../ui/fonts/roboto-serif-normal-cyrillic-ext.woff2") format("woff2");
+      unicode-range: U+0460-052F, U+1C80-1C8A, U+20B4, U+2DE0-2DFF, U+A640-A69F, U+FE2E-FE2F;
+    }
+    @font-face {
+      font-family: "Roboto Serif";
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+      src: url("../ui/fonts/roboto-serif-normal-cyrillic.woff2") format("woff2");
+      unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+    }
+    @font-face {
+      font-family: "Roboto Serif";
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+      src: url("../ui/fonts/roboto-serif-normal-latin-ext.woff2") format("woff2");
+      unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+    }
+    @font-face {
+      font-family: "Roboto Serif";
+      font-style: normal;
+      font-weight: 100 900;
+      font-display: swap;
+      src: url("../ui/fonts/roboto-serif-normal-latin.woff2") format("woff2");
+      unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 2rem;
+      background: #f4f0e8;
+      color: #241d17;
+      font: 16px/1.45 system-ui, sans-serif;
+    }
+    h1, h2, p { margin: 0; }
+    .page-header { max-width: 1210px; margin: 0 auto 1.5rem; }
+    .page-header h1 { font-size: 1.75rem; line-height: 1.15; }
+    .page-header p { margin-top: .4rem; color: #65594d; }
+    .workspace {
+      display: flex;
+      align-items: flex-start;
+      gap: 1.5rem;
+      max-width: 1210px;
+      margin: auto;
+    }
+    .controls {
+      flex: 0 0 340px;
+      display: grid;
+      gap: .75rem;
+      padding: 1.1rem;
+      border: 1px solid #cfc5b7;
+      border-radius: 12px;
+      background: #fffdf8;
+    }
+    .controls h2 { font-size: 1rem; }
+    .font-pair { display: grid; grid-template-columns: minmax(0, 1fr) 7.5rem; gap: .6rem; }
+    .metric-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .6rem; }
+    .field { display: grid; gap: .35rem; }
+    .field label { font-size: .85rem; font-weight: 650; }
+    .field input, .field select {
+      width: 100%;
+      min-height: 40px;
+      padding: .45rem .6rem;
+      border: 1px solid #9e9080;
+      border-radius: 5px;
+      background: white;
+      color: #241d17;
+      font: inherit;
+    }
+    .field input:focus-visible, .field select:focus-visible {
+      outline: 3px solid var(--bcd-color-focus);
+      outline-offset: 2px;
+    }
+    .field input:invalid { border-color: #9a2e1f; }
+    [hidden] { display: none !important; }
+    .hint, #font-status { font-size: .8rem; color: #65594d; }
+    #font-status { min-height: 1.2em; }
+    .preview-wrap { min-width: 0; overflow-x: auto; padding-bottom: .5rem; }
+    .preview-frame {
+      width: 828px;
+      height: 508px;
+      overflow: hidden;
+      border: 14px solid #302923;
+      border-radius: 22px;
+      background: #e7d514;
+      color: #12100b;
+    }
+    .preview-screen {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .corners {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex: 0 0 3rem;
+      padding: 0 1.25rem;
+      font: normal 400 1.1rem/1 "DM Mono", monospace;
+      letter-spacing: .2em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .preview-main {
+      display: flex;
+      flex: 1;
+      flex-direction: column;
+      justify-content: center;
+      gap: 1.8rem;
+      min-height: 0;
+    }
+    .preview-line {
+      width: 100%;
+      min-width: 0;
+      margin: 0;
+      overflow-x: clip;
+      overflow-y: visible;
+      white-space: nowrap;
+      text-align: center;
+      text-transform: none;
+    }
+    .preview-line.is-scrolling { text-align: left; }
+    .preview-track {
+      display: inline-flex;
+      width: max-content;
+      align-items: baseline;
+      gap: var(--scroll-gap, 0px);
+      white-space: nowrap;
+      will-change: transform;
+    }
+    .preview-copy { display: block; }
+    .preview-line:not(.is-scrolling) .preview-copy--duplicate { display: none; }
+    .preview-line.is-scrolling .preview-track {
+      animation: preview-scroll var(--scroll-duration, 20s) linear 1.2s infinite;
+    }
+    #preview-artist { font: normal 700 4.6rem/1.12 "Roboto Serif", serif; letter-spacing: 0em; }
+    #preview-song { font: normal 300 8rem/1.16 "Roboto Serif", serif; letter-spacing: 0em; }
+    #preview-album { max-width: 60%; overflow: hidden; text-overflow: ellipsis; }
+    @keyframes preview-scroll {
+      to { transform: translateX(var(--scroll-distance, -50%)); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      .preview-line.is-scrolling .preview-track { animation: none; }
+    }
+    .css-output {
+      display: grid;
+      gap: .75rem;
+      max-width: 1210px;
+      margin: 1.5rem auto 0;
+      padding: 1.1rem;
+      border: 1px solid #cfc5b7;
+      border-radius: 12px;
+      background: #fffdf8;
+    }
+    .css-output h2 { font-size: 1rem; }
+    .css-output-header { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .copy-button {
+      min-height: 48px;
+      padding: 10px 20px;
+      border: 2px solid var(--bcd-color-vivid-violet);
+      border-radius: 50px;
+      background: var(--bcd-color-vivid-violet);
+      color: white;
+      font: 700 17px/1 system-ui, sans-serif;
+      letter-spacing: -.02rem;
+      cursor: pointer;
+    }
+    .copy-button:hover { border-color: var(--bcd-color-vivid-violet-hover); background: var(--bcd-color-vivid-violet-hover); }
+    .copy-button:focus-visible, #css-code:focus-visible { outline: 3px solid var(--bcd-color-focus); outline-offset: 3px; }
+    #css-code {
+      width: 100%;
+      min-height: 13rem;
+      padding: .75rem;
+      border: 1px solid #9e9080;
+      border-radius: 5px;
+      background: white;
+      color: #241d17;
+      font: 14px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace;
+      resize: vertical;
+    }
+    #copy-status { min-height: 1.2em; }
+    @media (max-width: 1190px) {
+      .workspace { flex-direction: column; }
+      .controls { flex-basis: auto; width: min(100%, 800px); }
+      .preview-wrap { max-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-header">
+    <h1>Screensaver font playground</h1>
+    <p>Edit each line's text, font, weight, size, and letter spacing. Copy the CSS when you find a combination you like.</p>
+  </header>
+  <main>
+  <div class="workspace">
+    <form class="controls" onsubmit="return false">
+      <h2>Text</h2>
+      <div class="field">
+        <label for="artist-text">Artist name</label>
+        <input id="artist-text" type="text" value="Cristin Milioti" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="song-text">Song title</label>
+        <input id="song-text" type="text" value="Always Crashing In The Same Car" autocomplete="off">
+      </div>
+      <h2>Fonts</h2>
+      <div class="font-pair">
+        <div class="field">
+          <label for="artist-font">Artist font</label>
+          <select id="artist-font">
+            <optgroup label="Included with the app">
+              <option value="Gloock" selected>Gloock</option>
+              <option value="Fraunces">Fraunces</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field">
+          <label for="artist-weight">Artist weight</label>
+          <select id="artist-weight"><option value="400">400</option></select>
+        </div>
+      </div>
+      <div class="metric-pair">
+        <div class="field">
+          <label for="artist-size">Artist size (rem)</label>
+          <input id="artist-size" type="number" min="0.5" max="24" step="0.1" value="4.6" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="artist-spacing">Artist letter spacing (em)</label>
+          <input id="artist-spacing" type="number" min="-0.2" max="0.5" step="0.005" value="0" inputmode="decimal">
+        </div>
+      </div>
+      <div class="font-pair">
+        <div class="field">
+          <label for="song-font">Song font</label>
+          <select id="song-font">
+            <optgroup label="Included with the app">
+              <option value="Gloock">Gloock</option>
+              <option value="Fraunces" selected>Fraunces</option>
+            </optgroup>
+          </select>
+        </div>
+        <div class="field">
+          <label for="song-weight">Song weight</label>
+          <select id="song-weight"><option value="400">400</option></select>
+        </div>
+      </div>
+      <div class="metric-pair">
+        <div class="field">
+          <label for="song-size">Song size (rem)</label>
+          <input id="song-size" type="number" min="0.5" max="24" step="0.1" value="8" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="song-spacing">Song letter spacing (em)</label>
+          <input id="song-spacing" type="number" min="-0.2" max="0.5" step="0.005" value="0" inputmode="decimal">
+        </div>
+      </div>
+      <p class="hint"><a href="https://fonts.google.com/?preview.text=Linkin%20Park%20%D0%91%D0%B8%202&amp;script=Cyrl;Latn&amp;categoryFilters=Serif:%2FSerif%2F*,%2FSlab%2F*" target="_blank" rel="noopener noreferrer">68 filtered Google Fonts families</a> are listed in each dropdown. Weights reflect available faces; Gloock has only 400. Roboto Serif and the other app fonts work offline; remaining Google Fonts need internet.</p>
+      <p id="font-status" role="status" aria-live="polite"></p>
+    </form>
+    <div class="preview-wrap">
+      <section class="preview-frame" aria-label="Screensaver preview">
+        <div class="preview-screen">
+          <div class="corners"><span>Play 01:24</span><span>Side A</span></div>
+          <div class="preview-main">
+            <p id="preview-artist" class="preview-line">
+              <span class="preview-track">
+                <span class="preview-copy preview-copy--primary">Cristin Milioti</span><span class="preview-copy preview-copy--duplicate" aria-hidden="true">Cristin Milioti</span>
+              </span>
+            </p>
+            <h2 id="preview-song" class="preview-line">
+              <span class="preview-track">
+                <span class="preview-copy preview-copy--primary">Always Crashing In The Same Car</span><span class="preview-copy preview-copy--duplicate" aria-hidden="true">Always Crashing In The Same Car</span>
+              </span>
+            </h2>
+          </div>
+          <div class="corners"><span id="preview-album">Ain't It Tragic</span><span>Touch to return</span></div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <section class="css-output" aria-labelledby="css-output-title">
+    <div class="css-output-header">
+      <h2 id="css-output-title">Typography CSS</h2>
+      <button id="copy-css" class="copy-button" type="button">Copy CSS</button>
+    </div>
+    <textarea id="css-code" aria-label="CSS for the artist and song" readonly spellcheck="false" wrap="off"></textarea>
+    <p class="hint">If an @import appears, place it before other rules in your stylesheet.</p>
+    <p id="copy-status" class="hint" role="status" aria-live="polite"></p>
+  </section>
+  </main>
+  <script>
+    (function () {
+      var includedWeights = {
+        "Gloock": [400],
+        "Fraunces": [100, 200, 300, 400, 500, 600, 700, 800, 900],
+        "Roboto Serif": [100, 200, 300, 400, 500, 600, 700, 800, 900]
+      };
+      // Snapshot of the 68 families shown by the linked Google Fonts filter
+      // (Cyrillic + Latin, Serif + Slab Serif), with their upright weights.
+      var filteredFonts = [
+        ["Pochaevsk", [400]],
+        ["Playfair Display", [400, 500, 600, 700, 800, 900]],
+        ["Noto Serif", [100, 200, 300, 400, 500, 600, 700, 800, 900]],
+        ["PT Serif", [400, 700]],
+        ["Cormorant Garamond", [300, 400, 500, 600, 700]],
+        ["Chiron Sung HK", [200, 300, 400, 500, 600, 700, 800, 900]],
+        ["EB Garamond", [400, 500, 600, 700, 800]],
+        ["Source Serif 4", [200, 300, 400, 500, 600, 700, 800, 900]],
+        ["Spectral", [200, 300, 400, 500, 600, 700, 800]],
+        ["IBM Plex Serif", [100, 200, 300, 400, 500, 600, 700]],
+        ["Cormorant", [300, 400, 500, 600, 700]],
+        ["Playfair", [300, 400, 500, 600, 700, 800, 900]],
+        ["Literata", [200, 300, 400, 500, 600, 700, 800, 900]],
+        ["Prata", [400]],
+        ["Alegreya", [400, 500, 600, 700, 800, 900]],
+        ["Old Standard TT", [400, 700]],
+        ["STIX Two Text", [400, 500, 600, 700]],
+        ["Forum", [400]],
+        ["Playfair Display SC", [400, 700, 900]],
+        ["Noto Serif Display", [100, 200, 300, 400, 500, 600, 700, 800, 900]],
+        ["Charis SIL", [400, 700]],
+        ["Cormorant SC", [300, 400, 500, 600, 700]],
+        ["Bona Nova SC", [400, 700]],
+        ["Oranienbaum", [400]],
+        ["Brygada 1918", [400, 500, 600, 700]],
+        ["Alegreya SC", [400, 500, 700, 800, 900]],
+        ["Libertinus Serif", [400, 600, 700]],
+        ["STIX Two Math", [400]],
+        ["Libertinus Math", [400]],
+        ["Spectral SC", [200, 300, 400, 500, 600, 700, 800]],
+        ["Bona Nova", [400, 700]],
+        ["Orelega One", [400]],
+        ["Ledger", [400]],
+        ["Cactus Classical Serif", [400]],
+        ["Monomakh", [400]],
+        ["Libertinus Serif Display", [400]],
+        ["Gentium Book Plus", [400, 700]],
+        ["Gentium Plus", [400, 700]],
+        ["UoqMunThenKhung", [400]],
+        ["Bitter", [100, 200, 300, 400, 500, 600, 700, 800, 900]],
+        ["Vollkorn", [400, 500, 600, 700, 800, 900]],
+        ["Zen Old Mincho", [400, 500, 600, 700, 900]],
+        ["Cormorant Infant", [300, 400, 500, 600, 700]],
+        ["PT Serif Caption", [400]],
+        ["Gabriela", [400]],
+        ["Cormorant Unicase", [300, 400, 500, 600, 700]],
+        ["Yuji Syuku", [400]],
+        ["Zen Antique", [400]],
+        ["Kurale", [400]],
+        ["Zen Antique Soft", [400]],
+        ["Vollkorn SC", [400, 600, 700, 900]],
+        ["Oi", [400]],
+        ["Shafarik", [400]],
+        ["Roboto Slab", [100, 200, 300, 400, 500, 600, 700, 800, 900]],
+        ["Yeseva One", [400]],
+        ["Alice", [400]],
+        ["Lora", [400, 500, 600, 700]],
+        ["Hina Mincho", [400]],
+        ["Tinos", [400, 700]],
+        ["Merriweather", [300, 400, 500, 600, 700, 800, 900]],
+        ["Roboto Serif", [100, 200, 300, 400, 500, 600, 700, 800, 900]],
+        ["Kaisei Decol", [400, 500, 700]],
+        ["Kaisei Opti", [400, 500, 700]],
+        ["Kaisei Tokumin", [400, 500, 700, 800]],
+        ["Kaisei HarunoUmi", [400, 500, 700]],
+        ["Podkova", [400, 500, 600, 700, 800]],
+        ["Kelly Slab", [400]],
+        ["Ponomar", [400]]
+      ];
+      var filteredWeights = Object.create(null);
+      filteredFonts.forEach(function (entry) { filteredWeights[entry[0]] = entry[1]; });
+      var requestedFonts = Object.create(null);
+      var selectionVersion = { artist: 0, song: 0 };
+      var metrics = {
+        artist: { size: 4.6, spacing: 0 },
+        song: { size: 8, spacing: 0 }
+      };
+      var status = document.getElementById("font-status");
+      var cssCode = document.getElementById("css-code");
+      var copyStatus = document.getElementById("copy-status");
+
+      function populateFontOptions() {
+        ["artist", "song"].forEach(function (kind) {
+          var group = document.createElement("optgroup");
+          group.label = "Filtered Google Fonts (" + filteredFonts.length + ")";
+          filteredFonts.forEach(function (entry) {
+            group.appendChild(new Option(entry[0], entry[0]));
+          });
+          document.getElementById(kind + "-font").appendChild(group);
+          populateWeights(kind);
+        });
+      }
+
+      function populateWeights(kind) {
+        var name = document.getElementById(kind + "-font").value;
+        var select = document.getElementById(kind + "-weight");
+        var previous = Number(select.value);
+        var weights = includedWeights[name] || filteredWeights[name];
+        select.replaceChildren();
+        weights.forEach(function (weight) {
+          select.appendChild(new Option(String(weight), weight));
+        });
+        select.value = String(weights.indexOf(previous) !== -1 ? previous :
+          (weights.indexOf(400) !== -1 ? 400 : weights[0]));
+      }
+
+      function measure(line) {
+        var primary = line.querySelector(".preview-copy--primary");
+        line.classList.remove("is-scrolling");
+        var width = primary.getBoundingClientRect().width;
+        if (width > line.clientWidth) {
+          var gap = Math.round(line.clientWidth * 0.5);
+          var distance = width + gap;
+          line.style.setProperty("--scroll-gap", gap + "px");
+          line.style.setProperty("--scroll-distance", -distance + "px");
+          line.style.setProperty("--scroll-duration", Math.max(18, distance / 60) + "s");
+          line.classList.add("is-scrolling");
+        }
+      }
+
+      function measureAll() {
+        measure(document.getElementById("preview-artist"));
+        measure(document.getElementById("preview-song"));
+      }
+
+      function updateText(kind) {
+        var text = document.getElementById(kind + "-text").value;
+        var line = document.getElementById("preview-" + kind);
+        line.querySelector(".preview-copy--primary").textContent = text;
+        line.querySelector(".preview-copy--duplicate").textContent = text;
+        measure(line);
+        document.fonts.ready.then(function () { measure(line); });
+      }
+
+      function updateMetric(kind, metric) {
+        var input = document.getElementById(kind + "-" + metric);
+        if (!input.value || !input.checkValidity()) return;
+        var value = Number(input.value);
+        if (!Number.isFinite(value)) return;
+        metrics[kind][metric] = value;
+        var line = document.getElementById("preview-" + kind);
+        if (metric === "size") line.style.fontSize = value + "rem";
+        else line.style.letterSpacing = value + "em";
+        measure(line);
+        renderCss();
+      }
+
+      function renderCss() {
+        var remote = Object.create(null);
+        ["artist", "song"].forEach(function (kind) {
+          var family = document.getElementById(kind + "-font").value;
+          var weight = Number(document.getElementById(kind + "-weight").value);
+          if (includedWeights[family]) return;
+          if (!remote[family]) remote[family] = [];
+          if (remote[family].indexOf(weight) === -1) remote[family].push(weight);
+        });
+        var families = Object.keys(remote).sort();
+        var css = "";
+        if (families.length) {
+          var query = families.map(function (family) {
+            return "family=" + encodeURIComponent(family).replace(/%20/g, "+") +
+              ":wght@" + remote[family].sort(function (a, b) { return a - b; }).join(";");
+          }).join("&");
+          css = '@import url("https://fonts.googleapis.com/css2?' + query + '&display=swap");\n\n';
+        }
+        css += ["artist", "song"].map(function (kind) {
+          var family = document.getElementById(kind + "-font").value;
+          var weight = document.getElementById(kind + "-weight").value;
+          var lineHeight = kind === "artist" ? "1.12" : "1.16";
+          var rule = ".screensaver-" + kind + " {\n" +
+            "  font: normal " + weight + " " + metrics[kind].size + "rem/" + lineHeight +
+            " " + JSON.stringify(family) + ", serif;\n" +
+            "  letter-spacing: " + metrics[kind].spacing + "em;\n";
+          if (kind === "song") rule += "  text-transform: none;\n";
+          return rule + "}";
+        }).join("\n\n") + "\n";
+        cssCode.value = css;
+        copyStatus.textContent = "";
+      }
+
+      function copyCss() {
+        function fallback() {
+          cssCode.focus();
+          cssCode.select();
+          var copied = false;
+          try { copied = document.execCommand("copy"); } catch (error) { /* Keep text selected. */ }
+          copyStatus.textContent = copied ? "CSS copied." : "CSS selected. Copy it with your keyboard.";
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(cssCode.value).then(function () {
+            copyStatus.textContent = "CSS copied.";
+          }).catch(fallback);
+        } else fallback();
+      }
+
+      function loadFont(name, weight) {
+        if (includedWeights[name]) return Promise.resolve();
+        var key = name + ":" + weight;
+        if (requestedFonts[key]) return requestedFonts[key];
+        requestedFonts[key] = new Promise(function (resolve, reject) {
+          var link = document.createElement("link");
+          link.rel = "stylesheet";
+          link.href = "https://fonts.googleapis.com/css2?family=" +
+            encodeURIComponent(name).replace(/%20/g, "+") + ":wght@" + weight + "&display=swap";
+          link.onload = resolve;
+          link.onerror = function () { reject(new Error("Could not load " + name + " " + weight)); };
+          document.head.appendChild(link);
+        }).catch(function (error) {
+          delete requestedFonts[key];
+          throw error;
+        });
+        return requestedFonts[key];
+      }
+
+      function updateFont(kind, familyChanged) {
+        if (familyChanged) populateWeights(kind);
+        renderCss();
+        var name = document.getElementById(kind + "-font").value;
+        var weight = Number(document.getElementById(kind + "-weight").value);
+        var line = document.getElementById("preview-" + kind);
+        var version = ++selectionVersion[kind];
+        status.textContent = includedWeights[name] ? "" : "Loading " + name + " " + weight + "…";
+        loadFont(name, weight).then(function () {
+          if (version !== selectionVersion[kind]) return;
+          line.style.fontFamily = '"' + name + '", serif';
+          line.style.fontWeight = String(weight);
+          return document.fonts.load(weight + " 32px " + '"' + name + '"',
+            line.querySelector(".preview-copy--primary").textContent || "A").then(function (faces) {
+            if (version !== selectionVersion[kind]) return;
+            if (!includedWeights[name] && faces.length === 0) throw new Error("Font unavailable");
+            status.textContent = "Using " + name + " " + weight + ".";
+            measure(line);
+          });
+        }).catch(function () {
+          if (version === selectionVersion[kind]) status.textContent =
+            "Could not load " + name + " " + weight + ". Check the internet connection.";
+        });
+      }
+
+      ["artist", "song"].forEach(function (kind) {
+        document.getElementById(kind + "-text").addEventListener("input", function () { updateText(kind); });
+        document.getElementById(kind + "-font").addEventListener("change", function () { updateFont(kind, true); });
+        document.getElementById(kind + "-weight").addEventListener("change", function () { updateFont(kind, false); });
+        ["size", "spacing"].forEach(function (metric) {
+          var input = document.getElementById(kind + "-" + metric);
+          input.addEventListener("input", function () { updateMetric(kind, metric); });
+          input.addEventListener("change", function () {
+            if (!input.value || !input.checkValidity()) input.value = String(metrics[kind][metric]);
+            else updateMetric(kind, metric);
+          });
+        });
+      });
+      document.getElementById("copy-css").addEventListener("click", copyCss);
+      window.addEventListener("resize", measureAll);
+      document.fonts.ready.then(measureAll);
+      populateFontOptions();
+      ["artist", "song"].forEach(function (kind) {
+        document.getElementById(kind + "-font").value = "Roboto Serif";
+        populateWeights(kind);
+      });
+      document.getElementById("artist-weight").value = "700";
+      document.getElementById("song-weight").value = "300";
+      renderCss();
+      updateFont("artist", false);
+      updateFont("song", false);
+      measureAll();
+    }());
+  </script>
+</body>
+</html>

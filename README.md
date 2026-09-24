@@ -54,6 +54,10 @@ To debug all views:
 - http://127.0.0.1:5000/#stylus
 - http://127.0.0.1:5000/#stylus-error
 
+To compare screensaver fonts, weights, sizes, and letter spacing, open [the font playground](exp/font-playground.html) in a browser. It lists the 68 families from the linked Cyrillic + Latin Serif/Slab Google Fonts filter and provides CSS you can copy for both lines. The app fonts, including Roboto Serif, work offline; other Google Fonts choices need an internet connection.
+
+Roboto Serif's variable WOFF2 subsets and Open Font License are in [`ui/fonts/`](ui/fonts/).
+
 To send events in boardless mode (from another terminal):
 ```bash
 # Scan a record

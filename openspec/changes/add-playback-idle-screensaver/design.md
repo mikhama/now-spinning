@@ -24,7 +24,7 @@ Store the time when the UI enters Play and the last pointer interaction during P
 
 ### Display data
 
-Read the active record, side, and track from existing state when the overlay opens or Play data changes. Use `track.artist` when it has non-whitespace text; otherwise use `record.artist`. Show `track.title` alone on the song line, even when the normal Play view appends a track artist to its track label. Use server playback time when present; while it is unavailable or between updates, advance an elapsed display from the latest known time and wall clock.
+Read the active record, side, and track from existing state when the overlay opens or Play data changes. Use `track.artist` when it has non-whitespace text; otherwise use `record.artist`. Show `track.title` alone on the song line in its original casing, even when the normal Play view appends a track artist to its track label. Use server playback time when present; while it is unavailable or between updates, advance an elapsed display from the latest known time and wall clock.
 
 ### Cover palette
 
@@ -34,7 +34,13 @@ For a cover without a substantial colorful family, retain the original neutral f
 
 ### Layout and overflow
 
-Render a dedicated overlay element above the existing UI. Its top and bottom rows reuse the current status bar's 3rem height and 1.25rem horizontal inset. All four corner labels share the status label's DM Mono 1.1rem, weight 400, uppercase, and 0.2em letter spacing without per-corner overrides or reduced opacity. The top-left label uses the normal Play status format, `Play MM:SS`, with the advancing screensaver clock; the top-right label is only `Side A/B` for the current side. Center two separate lines in the middle with a 1.8rem gap. The artist uses normal 700 4.8rem/1.12 Gloock with zero letter spacing. The song uses normal 400 8.4rem/1.16 Fraunces with zero letter spacing. For either line that exceeds its available width, show a seamless scrolling duplicate separated by a gap. Re-measure after fonts load, on resize, and when the text changes. Respect reduced-motion preference.
+Render a dedicated overlay element above the existing UI. Its top and bottom rows reuse the current status bar's 3rem height and 1.25rem horizontal inset. All four corner labels share the status label's DM Mono 1.1rem, weight 400, uppercase, and 0.2em letter spacing without per-corner overrides or reduced opacity. The top-left label uses the normal Play status format, `Play MM:SS`, with the advancing screensaver clock; the top-right label is only `Side A/B` for the current side. Center two separate lines in the middle with a 1.8rem gap. Match the selected playground typography: artist normal 700 4.6rem/1.12 Roboto Serif and song normal 300 8rem/1.16 Roboto Serif, both with zero letter spacing and no uppercase transform. Keep the text area flush with both screen edges. Clip horizontal overflow for marquee motion while allowing vertical glyph overflow, so descenders such as `y` remain visible. For either line that exceeds the screen width, separate the identical copies by half the screen width and translate by the first copy's width plus that gap for a continuous newsline. Do not mask or fade the edges. Re-measure after the local font loads, on resize, and when the text changes. Respect reduced-motion preference.
+
+Bundle Roboto Serif's upright variable WOFF2 files in `ui/fonts/` with their Open Font License. The four Latin and Cyrillic subsets from the Google Fonts CSS2 response cover weights 100–900 and use local `@font-face` rules with their original Unicode ranges. The live screensaver and the playground load these local files; other Google Fonts choices in the playground remain network-loaded.
+
+### Font playground
+
+Keep `exp/font-playground.html` as a standalone preview of the screensaver. Its song text uses the entered capitalization. Both artist and song font selectors contain the current app faces plus the 68 families shown by the linked Google Fonts filter for Cyrillic and Latin Serif/Slab fonts, captured from the rendered catalog on 24 September 2026. Each line has its own weight selector, populated only with that family's upright weights from the Google Fonts catalog metadata (or from the included local face declarations). Each line also has numeric font size in rem and letter spacing in em controls. Initialize the example text to `Cristin Milioti` and `Always Crashing In The Same Car` and the type to Roboto Serif: artist weight 700, size 4.6rem, line height 1.12, letter spacing 0em; song weight 300, size 8rem, line height 1.16, letter spacing 0em. Load both selected weights from the bundled font when the page opens. Re-measure text overflow as these values change. In this playground preview, separate scrolling copies by 50% of the preview screen width and translate by the first copy's width plus that gap for a seamless loop. Display CSS for both screensaver selectors with the chosen family, weight, size, line height, and letter spacing; include a Google Fonts import only when a remote family is selected and offer a copy button with a manual-selection fallback. Load other selected Google families through the CSS2 API. Other Google-hosted choices need an internet connection; the app fonts remain available offline. Use the same horizontal-only overflow clipping as the live screen so long descenders remain visible.
 
 ## Risks / Trade-offs
 
@@ -45,7 +51,7 @@ Render a dedicated overlay element above the existing UI. Its top and bottom row
 
 ## Migration Plan
 
-No data migration is needed. The UI files deploy together; removing the overlay markup, styles, and client state reverts the change. Remove the temporary `previews/` directory and the `examples/` color and font experiments once their implementations are transferred into the UI.
+No data migration is needed. The UI files deploy together; removing the overlay markup, styles, and client state reverts the change. Remove the temporary `previews/` directory and the `examples/` color experiments once their implementations are transferred into the UI. Keep the font playground for future typography choices.
 
 ## Open Questions
 
