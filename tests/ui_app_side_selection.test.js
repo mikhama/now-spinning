@@ -49,6 +49,7 @@ function createHarness() {
     }
 
     const context = vm.createContext({
+        clearInterval,
         clearTimeout,
         console,
         document: {
@@ -64,7 +65,7 @@ function createHarness() {
         },
         fetch: function () { return Promise.resolve({ ok: true }); },
         location: { hash: "", host: "example.test", protocol: "http:" },
-        setTimeout,
+        setTimeout: function () { return null; },
         TextDecoder,
         window: { addEventListener: function () {} },
         WebSocket: FakeWebSocket,
@@ -272,6 +273,81 @@ test("Play Side button preserves the selected song before overrun", async functi
     assert.equal(context.state.currentTrackIndex, 1);
     status(harness, "play", "00:11");
     assert.equal(context.state.currentTrackIndex, 1);
+});
+
+test("Play song buttons wrap within each side and preserve the corrected playback position", async function () {
+    const harness = createHarness();
+    const { context, element } = harness;
+    const selectedRecord = record("1", "00:30", "00:45");
+    selectedRecord.sides[1].tracks.push({ title: "B3", duration: "00:45" });
+    context.state.records = [selectedRecord];
+    context.setMetaText = function (target, value) { target.textContent = value; };
+    await harness.initializeControls();
+
+    scan(harness, "1");
+    status(harness, "play", "00:10");
+    element("btn-next-song").click();
+    assert.equal(context.state.currentTrackIndex, 1);
+    element("btn-next-song").click();
+    assert.equal(context.state.currentSideIndex, 0);
+    assert.equal(context.state.currentTrackIndex, 0);
+    assert.equal(element("btn-side-label").textContent, "Side A");
+    assert.equal(element("play-track").textContent, "A1");
+    assert.equal(context.getEffectivePlaybackSeconds(), 0);
+    status(harness, "play", "00:11");
+    assert.equal(context.state.currentTrackIndex, 0);
+
+    element("btn-prev-song").click();
+    assert.equal(context.state.currentSideIndex, 0);
+    assert.equal(context.state.currentTrackIndex, 1);
+    assert.equal(element("play-track").textContent, "A2");
+    assert.equal(context.getEffectivePlaybackSeconds(), 30);
+    status(harness, "play", "00:12");
+    assert.equal(context.state.currentTrackIndex, 1);
+
+    element("btn-side-label").click();
+    assert.equal(context.state.currentSideIndex, 1);
+    assert.equal(context.state.currentTrackIndex, 1);
+    element("btn-next-song").click();
+    assert.equal(context.state.currentTrackIndex, 2);
+    element("btn-next-song").click();
+    assert.equal(context.state.currentSideIndex, 1);
+    assert.equal(context.state.currentTrackIndex, 0);
+    assert.equal(element("btn-side-label").textContent, "Side B");
+    assert.equal(element("play-track").textContent, "B1");
+    assert.equal(context.getEffectivePlaybackSeconds(), 60);
+    status(harness, "play", "00:13");
+    assert.equal(context.state.currentTrackIndex, 0);
+
+    element("btn-prev-song").click();
+    assert.equal(context.state.currentSideIndex, 1);
+    assert.equal(context.state.currentTrackIndex, 2);
+    assert.equal(element("btn-side-label").textContent, "Side B");
+    assert.equal(element("play-track").textContent, "B3");
+    assert.equal(context.getEffectivePlaybackSeconds(), 150);
+    status(harness, "play", "00:14");
+    assert.equal(context.state.currentSideIndex, 1);
+    assert.equal(context.state.currentTrackIndex, 2);
+});
+
+test("Play song buttons leave an empty selected side unchanged", async function () {
+    const harness = createHarness();
+    const { context, element } = harness;
+    const selectedRecord = record("1");
+    selectedRecord.sides[1].tracks = [];
+    context.state.records = [selectedRecord];
+    await harness.initializeControls();
+
+    scan(harness, "1");
+    status(harness, "play", "00:10");
+    element("btn-side-label").click();
+    const correction = context.state.manualPlaybackOffsetSeconds;
+    element("btn-next-song").click();
+    element("btn-prev-song").click();
+    assert.equal(context.state.currentSideIndex, 1);
+    assert.equal(context.state.currentTrackIndex, 0);
+    assert.equal(context.state.manualPlaybackOffsetSeconds, correction);
+    assert.equal(element("btn-side-label").textContent, "Side B");
 });
 
 test("empty Link action bar contains only Mode and its button advances the mode", async function () {

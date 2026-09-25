@@ -1570,11 +1570,10 @@ function prevSong() {
     var record = getCurrentRecord();
     if (!record || !record.sides || record.sides.length === 0) return;
 
-    state.currentTrackIndex--;
-    if (state.currentTrackIndex < 0) {
-        state.currentSideIndex = (state.currentSideIndex - 1 + record.sides.length) % record.sides.length;
-        state.currentTrackIndex = record.sides[state.currentSideIndex].tracks.length - 1;
-    }
+    var side = record.sides[state.currentSideIndex];
+    if (!side || !side.tracks || side.tracks.length === 0) return;
+
+    state.currentTrackIndex = (clampTrackIndex(record, state.currentSideIndex, state.currentTrackIndex) - 1 + side.tracks.length) % side.tracks.length;
     if (state.mode === "play") {
         setManualPlaybackOffset(getTrackStartSeconds(record, state.currentSideIndex, state.currentTrackIndex));
         updateCurrentSideButtonLabel();
@@ -1587,11 +1586,9 @@ function nextSong() {
     if (!record || !record.sides || record.sides.length === 0) return;
 
     var side = record.sides[state.currentSideIndex];
-    state.currentTrackIndex++;
-    if (state.currentTrackIndex >= side.tracks.length) {
-        state.currentSideIndex = (state.currentSideIndex + 1) % record.sides.length;
-        state.currentTrackIndex = 0;
-    }
+    if (!side || !side.tracks || side.tracks.length === 0) return;
+
+    state.currentTrackIndex = (clampTrackIndex(record, state.currentSideIndex, state.currentTrackIndex) + 1) % side.tracks.length;
     if (state.mode === "play") {
         setManualPlaybackOffset(getTrackStartSeconds(record, state.currentSideIndex, state.currentTrackIndex));
         updateCurrentSideButtonLabel();
