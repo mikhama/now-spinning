@@ -34,11 +34,15 @@ The UI SHALL use CSS custom properties matching the design system palette: `--pa
 - **THEN** the body background SHALL be `var(--paper)` (#efe6d4)
 
 ### Requirement: Design system typography — three font families
-The UI SHALL use three self-hosted font families: Gloock (display headings, numbers), Fraunces (body text, album titles in italic), and DM Mono (metadata, labels, buttons — always uppercase with letter-spacing).
+The UI SHALL use three core self-hosted font families: Gloock (display headings and numbers), Fraunces (body text and album titles in italic), and DM Mono (metadata, labels, and buttons, always uppercase with letter-spacing). It SHALL also self-host Roboto Serif as the playback screensaver's artist and song font.
 
 #### Scenario: Font-face declarations exist
 - **WHEN** the stylesheet is loaded
-- **THEN** @font-face rules SHALL define Gloock (400), Fraunces (normal 400-900, italic 400-700), and DM Mono (400, 500) loading from `fonts/` directory
+- **THEN** @font-face rules SHALL define Gloock (400), Fraunces (normal 400-900, italic 400-700), DM Mono (400, 500), and Roboto Serif (normal variable 100-900) loading from the `fonts/` directory
+
+#### Scenario: Screensaver uses local Roboto Serif
+- **WHEN** the playback screensaver displays its artist and song
+- **THEN** both lines SHALL render from the self-hosted Roboto Serif files at weights 700 and 300 respectively
 
 #### Scenario: Artist names use Gloock
 - **WHEN** a record is displayed
