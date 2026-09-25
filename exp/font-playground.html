@@ -173,7 +173,7 @@
     .preview-copy { display: block; }
     .preview-line:not(.is-scrolling) .preview-copy--duplicate { display: none; }
     .preview-line.is-scrolling .preview-track {
-      animation: preview-scroll var(--scroll-duration, 13.333s) linear 1.2s infinite;
+      animation: preview-scroll var(--scroll-duration, 10s) linear 1.2s infinite;
     }
     #preview-artist { font: normal 700 4.6rem/1.12 "Roboto Serif", serif; letter-spacing: 0em; }
     #preview-song { font: normal 300 8rem/1.16 "Roboto Serif", serif; letter-spacing: 0em; }
@@ -455,7 +455,7 @@
           var distance = width + gap;
           line.style.setProperty("--scroll-gap", gap + "px");
           line.style.setProperty("--scroll-distance", -distance + "px");
-          line.style.setProperty("--scroll-duration", Math.max(12, distance / 90) + "s");
+          line.style.setProperty("--scroll-duration", Math.max(9, distance / 120) + "s");
           line.classList.add("is-scrolling");
         }
       }

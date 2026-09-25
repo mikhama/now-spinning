@@ -332,7 +332,7 @@ body::before {
 }
 
 .screensaver-line.is-scrolling .screensaver-track {
-    animation: screensaver-scroll var(--screensaver-scroll-duration, 13.333s) linear 1.2s infinite;
+    animation: screensaver-scroll var(--screensaver-scroll-duration, 10s) linear 1.2s infinite;
 }
 
 .screensaver-artist {

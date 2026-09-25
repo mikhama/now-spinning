@@ -645,7 +645,7 @@ function measureScreensaverLine(line) {
         distance = textWidth + gap;
         line.style.setProperty("--screensaver-scroll-gap", gap + "px");
         line.style.setProperty("--screensaver-scroll-distance", -distance + "px");
-        line.style.setProperty("--screensaver-scroll-duration", Math.max(12, distance / 90) + "s");
+        line.style.setProperty("--screensaver-scroll-duration", Math.max(9, distance / 120) + "s");
         line.classList.add("is-scrolling");
     }
 }
