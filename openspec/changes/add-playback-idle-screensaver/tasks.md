@@ -8,6 +8,7 @@
 - [x] 1.6 Keep deep descenders visible in screensaver lines while retaining horizontal marquee clipping.
 - [x] 1.7 Bundle Roboto Serif's variable upright language subsets and license, and load both chosen weights locally.
 - [x] 1.8 Match the live screensaver's type sizes, weights, spacing, and half-screen marquee gap to the selected playground appearance.
+- [x] 1.9 Increase the live screensaver and playground newsline speed by 1.5× while keeping their loop timing aligned.
 
 ## 2. Playback behavior
 
