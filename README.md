@@ -84,6 +84,8 @@ curl -X POST -H "Content-Type: application/json" -d '{"event":"link_error","data
 
 The `time` field above is for boardless Play-mode UI testing. A `status: "play"` event with `time` means the turntable is spinning; any other status means it is not spinning. This does not change real board event production.
 
+An NFC reading error appears only before the first successful tag scan. Later read failures leave the last resolved record or Record Not Found view visible in Standby. NFC polling pauses during Playing; an externally supplied null scan event leaves Playing uninterrupted.
+
 ## Utils
 
 To read NFC tag:

@@ -32,7 +32,7 @@ class NfcCoordinatorTestCase(unittest.TestCase):
 
         self.assertEqual(read_calls, [1])
 
-    def test_scan_event_suppression_and_error_payloads(self):
+    def test_scan_event_suppression_continues_through_errors_after_success(self):
         reads = iter([
             NfcNoCard("none"),
             "1",
@@ -62,14 +62,46 @@ class NfcCoordinatorTestCase(unittest.TestCase):
             [
                 {"event": "scan", "data": {"record_id": "1"}},
                 {"event": "scan", "data": {"record_id": "2"}},
-                {"event": "scan", "data": {"record_id": None}},
-                {"event": "scan", "data": {"record_id": None}},
             ],
         )
         self.assertEqual(coordinator.last_successful_record_id, "2")
-        self.assertIsNone(coordinator.last_emitted_record_id)
+        self.assertEqual(coordinator.last_emitted_record_id, "2")
+        self.assertFalse(coordinator.scan_error_emitted)
 
-    def test_same_record_is_emitted_again_after_read_error_and_no_card(self):
+    def test_startup_error_is_emitted_once_until_first_successful_read(self):
+        reads = iter([
+            NfcError("bad read"),
+            NfcNoCard("none"),
+            NfcError("still bad"),
+            "1",
+            NfcError("bad again"),
+            "1",
+        ])
+
+        def read_nfc(timeout):
+            result = next(reads)
+            if isinstance(result, Exception):
+                raise result
+            return result
+
+        coordinator, messages = self.make_coordinator(read_nfc=read_nfc)
+        coordinator.set_mode("standby")
+
+        for _ in range(6):
+            coordinator.tick()
+
+        self.assertEqual(
+            messages,
+            [
+                {"event": "scan", "data": {"record_id": None}},
+                {"event": "scan", "data": {"record_id": "1"}},
+            ],
+        )
+        self.assertEqual(coordinator.last_successful_record_id, "1")
+        self.assertEqual(coordinator.last_emitted_record_id, "1")
+        self.assertFalse(coordinator.scan_error_emitted)
+
+    def test_same_record_remains_suppressed_after_read_error_and_no_card(self):
         reads = iter([
             "1",
             NfcError("bad read"),
@@ -93,8 +125,6 @@ class NfcCoordinatorTestCase(unittest.TestCase):
         self.assertEqual(
             messages,
             [
-                {"event": "scan", "data": {"record_id": "1"}},
-                {"event": "scan", "data": {"record_id": None}},
                 {"event": "scan", "data": {"record_id": "1"}},
             ],
         )

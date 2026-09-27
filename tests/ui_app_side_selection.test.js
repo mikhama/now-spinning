@@ -119,7 +119,7 @@ function status(harness, value, time) {
     harness.emit({ event: "status", data: { status: value, time } });
 }
 
-test("NFC error and repeat scan preserve side B; a different record resets to A", function () {
+test("external null scan keeps Standby record on side B; a different scan resets to A", function () {
     const harness = createHarness();
     const { context, element } = harness;
     context.state.records = [record("1"), record("2")];
@@ -131,8 +131,10 @@ test("NFC error and repeat scan preserve side B; a different record resets to A"
     scan(harness, null);
     assert.equal(context.state.currentRecordId, "1");
     assert.equal(context.state.currentSideIndex, 1);
-    assert.equal(context.state.standbyError, "nfc");
-    assert.equal(element("btn-side-standby").style.visibility, "hidden");
+    assert.equal(context.state.standbyError, null);
+    assert.equal(element("btn-side-standby").style.visibility, "visible");
+    assert.equal(element("standby-grid").style.display, "");
+    assert.equal(element("standby-error-grid").style.display, "none");
 
     scan(harness, "1");
     assert.equal(context.state.standbyError, null);
@@ -148,7 +150,7 @@ test("NFC error and repeat scan preserve side B; a different record resets to A"
     assert.equal(element("btn-side-standby").textContent, "Side A");
 });
 
-test("automatically advanced side survives NFC error, recovery, and the next Play start", function () {
+test("automatically advanced side survives an external null scan and the next Play start", function () {
     const harness = createHarness();
     const { context, element } = harness;
     context.state.records = [record("1")];
@@ -164,6 +166,112 @@ test("automatically advanced side survives NFC error, recovery, and the next Pla
     assert.equal(context.state.currentSideIndex, 1);
     assert.equal(context.state.currentTrackIndex, 0);
     assert.equal(element("btn-side-label").textContent, "Side B");
+});
+
+test("startup NFC error appears once and clears on the first successful scan", function () {
+    const harness = createHarness();
+    const { context, element } = harness;
+    context.state.records = [record("1")];
+
+    scan(harness, null);
+    assert.equal(context.state.standbyError, "nfc");
+    assert.equal(context.state.hasShownStartupNfcError, true);
+    assert.equal(element("standby-error-grid").style.display, "");
+    assert.equal(element("btn-side-standby").style.visibility, "hidden");
+
+    scan(harness, null);
+    assert.equal(context.state.standbyError, "nfc");
+
+    context.nextMode();
+    assert.equal(context.state.mode, "sync");
+    scan(harness, null);
+    assert.equal(context.state.mode, "sync");
+    assert.equal(context.state.standbyError, null);
+
+    scan(harness, "1");
+    assert.equal(context.state.hasSeenRecordId, true);
+    assert.equal(context.state.standbyError, null);
+    assert.equal(element("standby-grid").style.display, "");
+    assert.equal(element("standby-error-grid").style.display, "none");
+
+    scan(harness, null);
+    assert.equal(context.state.standbyError, null);
+    assert.equal(element("standby-grid").style.display, "");
+});
+
+test("external null scan keeps Playing mode, record selection, and playback time", function () {
+    const harness = createHarness();
+    const { context, element } = harness;
+    context.state.records = [record("1")];
+
+    scan(harness, "1");
+    status(harness, "play", "00:10");
+    context.switchSide();
+    context.nextSong();
+    const side = context.state.currentSideIndex;
+    const track = context.state.currentTrackIndex;
+    const time = context.state.playbackTime;
+    const offset = context.state.manualPlaybackOffsetSeconds;
+
+    scan(harness, null);
+
+    assert.equal(context.state.mode, "play");
+    assert.equal(context.state.currentRecordId, "1");
+    assert.equal(context.state.currentSideIndex, side);
+    assert.equal(context.state.currentTrackIndex, track);
+    assert.equal(context.state.playbackTime, time);
+    assert.equal(context.state.manualPlaybackOffsetSeconds, offset);
+    assert.equal(element("play-grid").style.display, "");
+    assert.equal(element("standby-error-grid").style.display, "none");
+});
+
+test("valid current_record seed protects Playing from a later external null scan", function () {
+    const harness = createHarness();
+    const { context } = harness;
+    context.state.records = [record("1")];
+
+    harness.emit({ event: "current_record", data: { record_id: "1" } });
+    assert.equal(context.state.hasSeenRecordId, true);
+    status(harness, "play", "00:05");
+    scan(harness, null);
+
+    assert.equal(context.state.mode, "play");
+    assert.equal(context.state.currentRecordId, "1");
+    assert.equal(context.state.playbackTime, "00:05");
+});
+
+test("valid current_record event recovers the startup NFC error", function () {
+    const harness = createHarness();
+    const { context, element } = harness;
+    context.state.records = [record("1")];
+
+    scan(harness, null);
+    harness.emit({ event: "current_record", data: { record_id: "1" } });
+
+    assert.equal(context.state.standbyError, null);
+    assert.equal(context.state.currentRecordId, "1");
+    assert.equal(context.state.standbyRecordVisible, true);
+    assert.equal(element("standby-grid").style.display, "");
+    assert.equal(element("standby-error-grid").style.display, "none");
+});
+
+test("external null scan keeps Record Not Found after a successful unknown or unlinked scan", function () {
+    for (const invalidId of ["999", "3"]) {
+        const harness = createHarness();
+        const { context, element } = harness;
+        const unlinked = record("3");
+        unlinked.linked = false;
+        context.state.records = [record("1"), unlinked];
+
+        scan(harness, invalidId);
+        assert.equal(context.state.standbyError, "not-found");
+
+        scan(harness, null);
+        assert.equal(context.state.mode, "standby");
+        assert.equal(context.state.standbyError, "not-found");
+        assert.equal(element("standby-not-found-grid").style.display, "");
+        assert.equal(element("standby-error-grid").style.display, "none");
+    }
 });
 
 test("unknown or unlinked scans clear record identity and later valid scan starts at A", function () {

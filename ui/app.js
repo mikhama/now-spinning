@@ -7,6 +7,8 @@ var state = {
     records: [],
     styli: [],
     currentRecordId: null,
+    hasSeenRecordId: false,
+    hasShownStartupNfcError: false,
     playbackTime: null,
     boardlessElapsedSeconds: null,
     manualPlaybackOffsetSeconds: 0,
@@ -1641,17 +1643,28 @@ function connectWebSocket() {
 
         switch (msg.event) {
             case "current_record":
-                activateRecord(msgData.record_id, { clearStandbyError: false });
+                var recordOptions = state.standbyError === "nfc"
+                    ? { showInStandby: true }
+                    : { clearStandbyError: false };
+                if (activateRecord(msgData.record_id, recordOptions)) {
+                    state.hasSeenRecordId = true;
+                }
                 render();
                 break;
             case "scan":
                 if (msgData.record_id === null) {
-                    state.standbyError = "nfc";
-                    state.standbyRecordVisible = false;
-                } else {
-                    if (!activateRecord(msgData.record_id, { showInStandby: true, requireLinked: true })) {
-                        clearActiveRecord("not-found");
+                    if (!state.hasSeenRecordId && !state.hasShownStartupNfcError) {
+                        state.hasShownStartupNfcError = true;
+                        state.standbyError = "nfc";
+                        state.standbyRecordVisible = false;
+                        setMode("standby");
+                        render();
                     }
+                    break;
+                }
+                state.hasSeenRecordId = true;
+                if (!activateRecord(msgData.record_id, { showInStandby: true, requireLinked: true })) {
+                    clearActiveRecord("not-found");
                 }
                 setMode("standby");
                 render();

@@ -84,13 +84,11 @@ class NfcCoordinator:
             self._log_info("NFC read attempt started (timeout=%s)", self.read_timeout_seconds)
             record_id = self.read_nfc(timeout=self.read_timeout_seconds)
         except NfcNoCard:
-            self.scan_error_emitted = False
             return
         except NfcError as error:
             self._log_error("NFC read failed: %s", error)
-            if not self.scan_error_emitted:
+            if self.last_successful_record_id is None and not self.scan_error_emitted:
                 self._broadcast({"event": "scan", "data": {"record_id": None}})
-                self.last_emitted_record_id = None
                 self.scan_error_emitted = True
             return
 

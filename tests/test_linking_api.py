@@ -191,6 +191,65 @@ class LinkingApiTestCase(unittest.TestCase):
 
         self.assertIn({"event": "temperature_c", "data": {"temp_c": 59.2}}, events)
 
+    def test_initial_events_keep_startup_nfc_error_until_first_successful_scan(self):
+        runtime_state["last_scan_data"] = None
+        runtime_state["current_record_id"] = None
+        error = {"event": "scan", "data": {"record_id": None}}
+
+        api_main.broadcast_message(error)
+        api_main.broadcast_message(error)
+
+        self.assertEqual([event for event in build_initial_events() if event["event"] == "scan"], [error])
+
+        success = {"event": "scan", "data": {"record_id": "1"}}
+        api_main.broadcast_message(success)
+
+        self.assertEqual([event for event in build_initial_events() if event["event"] == "scan"], [success])
+
+    def test_initial_events_keep_successful_scan_after_later_external_null_scan(self):
+        runtime_state["last_scan_data"] = None
+        runtime_state["current_record_id"] = None
+        success = {"event": "scan", "data": {"record_id": "1"}}
+        error = {"event": "scan", "data": {"record_id": None}}
+        client = unittest.mock.Mock()
+
+        with patch.object(api_main, "connected_clients", {client}):
+            api_main.broadcast_message(success)
+            api_main.broadcast_message(error)
+
+        self.assertEqual(client.send.call_count, 2)
+        self.assertEqual(json.loads(client.send.call_args.args[0]), error)
+        self.assertEqual(runtime_state["current_record_id"], "1")
+        self.assertEqual([event for event in build_initial_events() if event["event"] == "scan"], [success])
+
+    def test_initial_events_keep_current_record_after_later_external_null_scan(self):
+        runtime_state["last_scan_data"] = None
+        runtime_state["current_record_id"] = None
+        current_record = {"event": "current_record", "data": {"record_id": "1"}}
+
+        api_main.broadcast_message(current_record)
+        api_main.broadcast_message({"event": "scan", "data": {"record_id": None}})
+
+        self.assertEqual(
+            [event for event in build_initial_events() if event["event"] in ("scan", "current_record")],
+            [current_record],
+        )
+
+    def test_initial_events_restore_playing_record_after_later_external_null_scan(self):
+        runtime_state["last_scan_data"] = None
+        runtime_state["current_record_id"] = None
+        success = {"event": "scan", "data": {"record_id": "1"}}
+        playing = {"event": "status", "data": {"status": "play", "time": "00:10"}}
+
+        api_main.broadcast_message(success)
+        api_main.broadcast_message(playing)
+        api_main.broadcast_message({"event": "scan", "data": {"record_id": None}})
+
+        self.assertEqual(
+            [event for event in build_initial_events() if event["event"] in ("scan", "status")],
+            [success, playing],
+        )
+
     def test_temperature_endpoint_is_removed(self):
         response = self.client.get("/temperature")
 
@@ -269,13 +328,13 @@ class LinkingApiTestCase(unittest.TestCase):
         self.assertIn('requestNfcWrite(record.id, "re-link")', source)
         self.assertIn('@app.post("/events")', api_source)
 
-    def test_frontend_null_scan_payload_uses_nfc_error_state(self):
+    def test_frontend_null_scan_payload_uses_startup_nfc_error_state(self):
         app_js = Path(__file__).resolve().parents[1] / "ui" / "app.js"
         source = app_js.read_text()
 
         self.assertIn("if (msgData.record_id === null)", source)
+        self.assertIn('if (!state.hasSeenRecordId && !state.hasShownStartupNfcError)', source)
         self.assertIn('state.standbyError = "nfc"', source)
-        self.assertIn('state.standbyRecordVisible = false', source)
 
     def test_frontend_unlinked_scan_payload_uses_not_found_state(self):
         app_js = Path(__file__).resolve().parents[1] / "ui" / "app.js"

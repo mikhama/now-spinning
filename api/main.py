@@ -64,8 +64,12 @@ def update_runtime_state(message):
         runtime_state["current_record_id"] = data.get("record_id")
         runtime_state["last_scan_data"] = None
     elif event == "scan":
-        runtime_state["last_scan_data"] = data
-        runtime_state["current_record_id"] = data.get("record_id")
+        record_id = data.get("record_id")
+        if record_id is not None:
+            runtime_state["last_scan_data"] = data
+            runtime_state["current_record_id"] = record_id
+        elif runtime_state["last_scan_data"] is None and runtime_state["current_record_id"] is None:
+            runtime_state["last_scan_data"] = data
     elif event == "status":
         status = data.get("status")
         if status is not None:
