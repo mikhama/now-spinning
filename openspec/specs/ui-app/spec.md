@@ -356,7 +356,7 @@ The UI SHALL establish a WebSocket connection to `/ws` and process incoming even
 - **THEN** the UI SHALL attempt to reconnect every 3 seconds
 
 ### Requirement: Boardless Play elapsed side and song selection
-In boardless Play mode, the UI SHALL derive the current track from the effective playback position within the currently selected side. Playback SHALL start on the first side only after a new record is activated. The effective playback position SHALL be the latest boardless elapsed playback time plus any manual side or song correction offset. Track and side durations SHALL be calculated from existing record side track durations, accepting both `duration` and synced `time` fields.
+In boardless Play mode, the UI SHALL derive the current track from the effective playback position within the currently selected side. Playback SHALL start on the first side only after a new record is activated. The effective playback position SHALL be the latest boardless elapsed playback time plus any manual side or song correction offset. Track and side durations SHALL be calculated from existing record side track durations, accepting both `duration` and synced `time` fields. Prev and Next song controls SHALL cycle through only the songs on the currently selected side, leaving the selected side and its label unchanged. If that side has no songs, either control SHALL leave the selection unchanged.
 
 #### Scenario: Playback starts on side A
 - **WHEN** boardless Play mode starts after a new record is activated whose first side label is "A"
@@ -420,6 +420,20 @@ In boardless Play mode, the UI SHALL derive the current track from the effective
 - **THEN** the UI SHALL select the adjacent song
 - **AND** the UI SHALL recalculate the manual playback offset so the effective playback position points at the selected song
 - **AND** later elapsed-time updates SHALL keep using that corrected effective playback position
+
+#### Scenario: Next wraps from the final song
+- **WHEN** the final song on side "A" is selected and the user clicks Next
+- **THEN** the first song on side "A" SHALL be selected
+- **AND** the selected side and Side button label SHALL remain side "A"
+
+#### Scenario: Prev wraps from the first song
+- **WHEN** the first song on side "B" is selected and the user clicks Prev
+- **THEN** the final song on side "B" SHALL be selected
+- **AND** the selected side and Side button label SHALL remain side "B"
+
+#### Scenario: Navigation on a side with no songs
+- **WHEN** the selected side has no songs and the user clicks Prev or Next
+- **THEN** the selected side and song index SHALL remain unchanged
 
 ### Requirement: Bottom action bar
 The UI SHALL display a bottom action bar with mode-specific buttons in a 4-column grid. Unused slots SHALL be invisible placeholders. Empty Link, Re-Link, and Stylus states SHALL display only the Mode button; they SHALL NOT display a Side button.

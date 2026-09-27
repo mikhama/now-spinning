@@ -141,7 +141,7 @@ The selected song SHALL reset to the first song on the selected side when playba
 - **THEN** the selected side SHALL remain unchanged
 
 ### Requirement: Boardless playback correction state
-During boardless Play mode, the UI mode state SHALL maintain enough timing state to combine server elapsed time with user side and song corrections. The effective playback position SHALL be recalculated whenever a boardless play status event, Side button click, Prev song click, or Next song click changes playback selection.
+During boardless Play mode, the UI mode state SHALL maintain enough timing state to combine server elapsed time with user side and song corrections. The effective playback position SHALL be recalculated whenever a boardless play status event, Side button click, Prev song click, or Next song click changes playback selection. Prev and Next song clicks SHALL keep the selected side unchanged and wrap the song selection within that side.
 
 #### Scenario: Manual side correction stores offset
 - **WHEN** the user manually changes from side "A" to side "B" while the latest server elapsed time is `01:00`
@@ -152,6 +152,12 @@ During boardless Play mode, the UI mode state SHALL maintain enough timing state
 - **WHEN** the user manually changes from the first song to the second song while the latest server elapsed time is `01:00`
 - **THEN** the selected song SHALL become the second song
 - **AND** the manual playback correction offset SHALL be set so the effective playback position is at the selected song for subsequent elapsed-time updates
+
+#### Scenario: Manual song wrap corrects playback position on the same side
+- **WHEN** the user clicks Next on the final song or Prev on the first song of the selected side during Play
+- **THEN** the selected song SHALL wrap to the opposite end of the same side
+- **AND** the selected side SHALL remain unchanged
+- **AND** the manual playback correction offset SHALL point to the newly selected song's start for subsequent elapsed-time updates
 
 #### Scenario: Stopped playback clears manual song correction
 - **WHEN** the user manually selected the second song during Play mode
