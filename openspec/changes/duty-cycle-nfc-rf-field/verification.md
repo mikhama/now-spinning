@@ -1,14 +1,14 @@
 ## Host verification — 2026-10-24
 
-Software implementation is complete and ready for review/deployment. Python 3.14 was used; the system
+Host checks pass; the restored I2C polling behavior is ready for deployment and a normal Pi startup check. Python 3.14 was used; the system
 `python3` is 3.9 and cannot import the pre-existing union type annotations.
 
 | Check | Result |
 | --- | --- |
 | Original NFC baseline before implementation | 17 tests passed |
 | `python3.14 -m unittest discover -s tests -p 'test_nfc*.py'` | 25 tests passed |
-| `python3.14 -m unittest discover -s tests -p 'test_pn532.py'` | 23 tests passed |
-| Complete Python suite, including API checks (command below) | 138 tests passed |
+| `python3.14 -m unittest discover -s tests -p 'test_pn532.py'` | 28 tests passed |
+| Complete Python suite, including API checks (command below) | 143 tests passed |
 | `node --test tests/*.test.js` | 21 tests passed |
 | `openspec validate duty-cycle-nfc-rf-field --strict --no-interactive` | Passed before implementation and after final code changes |
 | `git diff --check` | Passed |
@@ -44,7 +44,7 @@ finishes successfully.
 
 ## Startup regression fix
 
-The deployed startup failure exposed an I2C regression: the driver requested a
+The startup investigation found an I2C regression: the driver requested a
 64-byte response buffer while receiving a six-byte ACK. It now reads the ACK
 separately, matching the earlier working driver. The fake I2C transport now
 rejects oversized ACK reads and truncates short reads instead of supplying an
@@ -53,8 +53,27 @@ entire frame regardless of the request length.
 `test_i2c_startup_reads_ack_separately` reproduced a transport timeout followed by
 RF-off cleanup failure before the fix and passes afterward. The new startup
 error regression also verifies that the original failure remains visible when
-cleanup fails, and that the transport still closes. These are host regressions;
-the deployed Pi startup should be retried with the patch.
+cleanup fails, and that the transport still closes.
+
+An initial Pi traceback failed in the first command write. The later bus
+diagnostic successfully opened bus 6, received an ACK at address `0x24`, and
+sent SAMConfiguration, then failed with `OSError(5)` on a ready-status poll.
+That diagnostic used the deployed driver before the polling retry correction.
+The SAM frame is unchanged (`00 00 ff 05 fb d4 14 01 14 01 02 00`).
+
+Restored bounded polling retries match the previous working driver's behavior.
+Tests now inject both `OSError(5)` and `OSError(110)` before ACK and response
+readiness, then complete initialization, firmware retrieval, and RF-off close.
+Persistent errors still fail within the shared deadline and retain their errno.
+Command writes and frame reads report their stage without blind retries.
+Valid busy (`RDY=0`) frame replies also resume polling instead of raising a
+malformed-status error. Tests cover recovery through startup/firmware/close
+and persistent busy replies exhausting the original shared deadline.
+
+After deploying these working-tree changes, run the diagnostic using the same
+virtual environment as the app (`./env/bin/python -m exp.nfc.nfc_debug_i2c`),
+then start kiosk mode normally. Pi success has not yet been reported for this
+polling retry correction.
 
 ## After deployment: simple end-to-end check
 

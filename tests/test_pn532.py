@@ -168,6 +168,120 @@ class DriverTestCase(unittest.TestCase):
         driver.set_rf_field(False)
         self.assertEqual(wire.read_sizes[-4:], [7, 65, 7, 65])
 
+    def test_i2c_startup_retries_temporary_ready_poll_errors(self):
+        for error_number in (5, 110):
+            with self.subTest(errno=error_number):
+                driver, wire = self.driver("i2c", initialize=False)
+                original_transfer = wire.i2c_rdwr
+                failed_polls = set()
+                wire.handler = lambda cmd, args: (
+                    [(0, driver._ACK), (0.01, reply(cmd, b"\x32\x01\x06\x07"))]
+                    if cmd == driver.CMD_FIRMWARE_VERSION else wire.normal_reply(cmd, args))
+
+                def transfer(message):
+                    if message.count == 1:
+                        key = (len(wire.commands), wire.frames[0][1])
+                        if key not in failed_polls:
+                            failed_polls.add(key)
+                            self.clock.now += 0.002
+                            raise OSError(error_number, "temporarily busy")
+                    original_transfer(message)
+
+                with patch.object(wire, "i2c_rdwr", side_effect=transfer):
+                    driver._initialize()
+                    self.assertFalse(wire.rf)
+                    self.assertFalse(wire.closed)
+                    self.assertEqual(driver.get_firmware_version(), {
+                        "ic": 0x32, "ver": 1, "rev": 6, "support": 7,
+                    })
+                    driver.close()
+                self.assertEqual(len(failed_polls), 10)
+                self.assertFalse(wire.rf)
+                self.assertTrue(wire.closed)
+
+    def test_i2c_persistent_poll_errors_keep_shared_deadline_and_original_errno(self):
+        driver, wire = self.driver("i2c")
+        original_transfer = wire.i2c_rdwr
+        failure = TimeoutError(110, "status unavailable")
+        polls = []
+
+        def transfer(message):
+            if message.count == 1:
+                polls.append(self.clock.now)
+                self.clock.now += 0.002
+                raise failure
+            original_transfer(message)
+
+        start = self.clock.now
+        with patch.object(wire, "i2c_rdwr", side_effect=transfer):
+            with self.assertRaisesRegex(NfcError, "ready-status read.*110") as raised:
+                driver.send_command(0x4a, b"\x01\x00", timeout=0.035)
+        self.assertGreater(len(polls), 1)
+        self.assertAlmostEqual(self.clock.now - start, 0.035)
+        self.assertIs(raised.exception.__cause__.__cause__, failure)
+
+    def test_i2c_busy_frame_status_is_retried_during_startup_and_firmware_read(self):
+        driver, wire = self.driver("i2c", initialize=False)
+        original_transfer = wire.i2c_rdwr
+        busy_frames = set()
+        wire.handler = lambda cmd, args: (
+            [(0, driver._ACK), (0.01, reply(cmd, b"\x32\x01\x06\x07"))]
+            if cmd == driver.CMD_FIRMWARE_VERSION else wire.normal_reply(cmd, args))
+
+        def transfer(message):
+            if message.count > 1:
+                key = (len(wire.commands), wire.frames[0][1])
+                if key not in busy_frames:
+                    busy_frames.add(key)
+                    message.data = bytes(message.count)
+                    return
+            original_transfer(message)
+
+        with patch.object(wire, "i2c_rdwr", side_effect=transfer):
+            driver._initialize()
+            self.assertEqual(driver.get_firmware_version()["ic"], 0x32)
+            driver.close()
+        self.assertEqual(len(busy_frames), 10)
+        self.assertFalse(wire.rf)
+        self.assertTrue(wire.closed)
+
+    def test_i2c_persistent_busy_frame_status_uses_existing_deadline(self):
+        driver, wire = self.driver("i2c")
+        original_transfer = wire.i2c_rdwr
+
+        def transfer(message):
+            if message.count > 1:
+                message.data = bytes(message.count)
+            else:
+                original_transfer(message)
+
+        start = self.clock.now
+        with patch.object(wire, "i2c_rdwr", side_effect=transfer):
+            with self.assertRaisesRegex(NfcError, "timed out"):
+                driver.send_command(0x4a, b"\x01\x00", timeout=0.035)
+        self.assertAlmostEqual(self.clock.now - start, 0.035)
+
+    def test_i2c_transfer_errors_identify_stage_and_do_not_retry_frame_transfers(self):
+        for stage, expected in (("write", "command write"), ("ack", "ACK read"),
+                                ("response", "response read")):
+            with self.subTest(stage=stage):
+                driver, wire = self.driver("i2c")
+                original_transfer = wire.i2c_rdwr
+                failures = []
+
+                def transfer(message):
+                    if ((stage == "write" and message.count == 0)
+                            or (stage == "ack" and message.count == 7)
+                            or (stage == "response" and message.count == 65)):
+                        failures.append(message)
+                        raise TimeoutError(110, "transfer timed out")
+                    original_transfer(message)
+
+                with patch.object(wire, "i2c_rdwr", side_effect=transfer):
+                    with self.assertRaisesRegex(NfcError, expected):
+                        driver.send_command(0x14, b"\x01\x14\x01")
+                self.assertEqual(len(failures), 1)
+
     def test_startup_cleanup_failure_reports_initial_error_too(self):
         for kind in ("uart", "i2c"):
             with self.subTest(kind=kind):

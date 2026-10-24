@@ -27,3 +27,6 @@ This manual follow-up does not block implementation and requires no measuring eq
 - [x] 4.1 Restore separate six-byte I2C ACK reads and cover startup with a transport that rejects oversized ACK reads.
 - [x] 4.2 Include the original initialization error when RF-off cleanup also fails, while still closing the connection.
 - [x] 4.3 Run focused NFC tests, the Python/API suite, and strict OpenSpec validation for the fix.
+- [x] 4.4 Restore bounded retries for transient I2C ready-status errors, retain persistent failures and shared deadlines, and identify the failing I2C stage in errors.
+- [x] 4.5 Reproduce the diagnostic's ready-poll `OSError(5)` and verify that restored retries allow initialization, firmware retrieval, and RF-off cleanup to complete.
+- [x] 4.6 Retry valid busy frame statuses under the existing deadline instead of reporting malformed status; verify recovery and persistent-busy timeout.

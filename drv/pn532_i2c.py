@@ -49,32 +49,62 @@ class PN532(PN532Commands):
     def _prepare_command(self):
         pass
 
-    def _write_frame(self, frame, deadline):
-        self.bus.i2c_rdwr(i2c_msg.write(self.address, frame))
+    def _i2c_transfer(self, message, stage):
+        try:
+            self.bus.i2c_rdwr(message)
+        except OSError as error:
+            description = f"I2C {stage} failed: {error}"
+            contextual_error = OSError(error.errno, description) if error.errno is not None else OSError(description)
+            raise contextual_error from error
 
-    def _read_chunk(self, deadline, *, acknowledged=False):
+    def _write_frame(self, frame, deadline):
+        self._i2c_transfer(i2c_msg.write(self.address, frame), "command write")
+
+    def _wait_ready(self, deadline):
+        last_error = None
         while (remaining := deadline - time.monotonic()) > 0:
-            status = i2c_msg.read(self.address, 1)
-            self.bus.i2c_rdwr(status)
+            try:
+                status = i2c_msg.read(self.address, 1)
+                self._i2c_transfer(status, "ready-status read")
+            except OSError as error:
+                # PN532 can temporarily NACK while busy. The previous driver
+                # retried these status polls; keep that behavior within the
+                # command's existing deadline, without resending the command.
+                last_error = error
+                ready = False
+            else:
+                last_error = None
+                ready = bytes(status) == b'\x01'
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                return b''
-            if bytes(status) == b'\x01':
-                # Read the six-byte ACK separately, as in the original I2C
-                # driver. Reading a response-sized buffer here can stall I2C.
-                count = 64 if acknowledged else len(self._ACK)
-                response = i2c_msg.read(self.address, count + 1)
-                self.bus.i2c_rdwr(response)
-                raw = bytes(response)
-                if not raw or raw[0] != 1:
-                    raise NfcError("Malformed I2C ready status")
-                if not acknowledged and raw[1:] != self._ACK:
-                    # A previous command's response can precede the new ACK.
-                    # The short I2C read discards it; do not join that fragment
-                    # to the next frame in the shared UART stream parser.
-                    continue
-                return raw[1:]
-            time.sleep(min(0.005, remaining))
+                break
+            if ready:
+                return True
+            time.sleep(min(0.01, remaining))
+        if last_error is not None:
+            raise last_error
+        return False
+
+    def _read_chunk(self, deadline, *, acknowledged=False):
+        while self._wait_ready(deadline):
+            # Read the six-byte ACK separately, as in the original I2C driver.
+            count = 64 if acknowledged else len(self._ACK)
+            response = i2c_msg.read(self.address, count + 1)
+            self._i2c_transfer(response, "response read" if acknowledged else "ACK read")
+            raw = bytes(response)
+            if raw and raw[0] == 0:
+                # RDY=0 is a valid busy reply; following bytes are irrelevant.
+                remaining = deadline - time.monotonic()
+                if remaining > 0:
+                    time.sleep(min(0.01, remaining))
+                continue
+            if not raw or raw[0] != 1:
+                raise NfcError("Malformed I2C ready status")
+            if not acknowledged and raw[1:] != self._ACK:
+                # A previous command's response can precede the new ACK.
+                # Discard the short read instead of joining it to a new frame.
+                continue
+            return raw[1:]
         return b''
 
     def _close_connection(self):
