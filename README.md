@@ -30,6 +30,51 @@ To run the app in kiosk mode on Pi:
 ./bin/run_kiosk.sh
 ```
 
+### Start automatically on boot
+
+On Raspberry Pi OS using the labwc desktop, open the desktop autostart file:
+
+```bash
+mkdir -p ~/.config/labwc
+nano ~/.config/labwc/autostart
+```
+
+Add this line at the end, adjusting the paths if the project is installed elsewhere:
+
+```bash
+/home/<username>/code/now-spinning/bin/run_kiosk.sh >> /home/<username>/now-spinning.log 2>&1 &
+```
+
+The trailing `&` runs the script in the background. The script activates the
+project's virtual environment and selects the project directory automatically.
+Startup output is saved in `/home/<username>/now-spinning.log`.
+
+Open the Raspberry Pi configuration menu:
+
+```bash
+sudo raspi-config
+```
+
+Using the arrow keys and Enter:
+
+1. Select **1 System Options → S5 Boot → B2 Desktop**.
+2. Return to **1 System Options → S6 Auto Login**.
+3. Keep your preferred console login setting, then select **Yes** when asked
+   whether to automatically log in to the desktop.
+4. Select **Finish** and reboot.
+
+On versions with a combined **S5 Boot / Auto Login** menu, select
+**B4 Desktop Autologin** instead.
+
+To reboot manually:
+
+```bash
+sudo reboot
+```
+
+See the [official Raspberry Pi kiosk guide](https://www.raspberrypi.com/tutorials/how-to-use-a-raspberry-pi-in-kiosk-mode/)
+for more about labwc autostart.
+
 ## Development
 
 To run the app in boardless mode:
