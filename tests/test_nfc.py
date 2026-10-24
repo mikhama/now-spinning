@@ -1,7 +1,8 @@
 import unittest
 
 import lib.nfc as nfc_module
-from lib.nfc import NfcError, NfcNoCard, Pn532Backend, nfc_read, nfc_read_once, nfc_write
+from lib.nfc import BoardlessBackend, NfcError, NfcNoCard, Pn532Backend, nfc_read, nfc_read_once, nfc_write
+from unittest.mock import patch
 
 
 class FakeBackend:
@@ -39,23 +40,40 @@ class FakePn532:
         self.fail_read = False
         self.fail_write = False
         self.auth_ok = True
+        self.rf_enabled = False
+        self.rf_calls = []
+        self.actions = []
+
+    def action(self, name, address):
+        if not self.rf_enabled:
+            raise AssertionError("Payload operation while RF is off")
+        self.actions.append((name, address))
+
+    def set_rf_field(self, enabled):
+        self.rf_calls.append(enabled)
+        self.rf_enabled = enabled
+        return True
 
     def wait_for_card(self, timeout=30):
         self.wait_timeouts.append(timeout)
+        self.set_rf_field(True)
         return self.card
 
     def identify_card(self, card):
         return self.card_type
 
     def classic_auth(self, block, uid):
+        self.action("auth", block)
         return self.auth_ok
 
     def classic_read(self, block):
+        self.action("classic_read", block)
         if self.fail_read:
             return None
         return self.classic_blocks.get(block)
 
     def classic_write(self, block, chunk):
+        self.action("classic_write", block)
         if self.fail_write:
             return False
         self.classic_writes.append((block, bytes(chunk)))
@@ -65,11 +83,13 @@ class FakePn532:
         return (block + 1) % 4 == 0
 
     def ntag_read(self, page):
+        self.action("ntag_read", page)
         if self.fail_read:
             return None
         return self.ntag_pages.get(page)
 
     def ntag_write(self, page, chunk):
+        self.action("ntag_write", page)
         if self.fail_write:
             return False
         self.ntag_writes.append((page, bytes(chunk)))
@@ -166,6 +186,106 @@ class NfcLibraryTestCase(unittest.TestCase):
         backend.write("1")
 
         self.assertEqual(fake_nfc.classic_writes, [(4, bytes([1]) + b"1" + bytes(14))])
+
+    def test_multi_page_and_block_reads_keep_rf_through_complete_payload(self):
+        text = "a" * 60
+        payload = (bytes([len(text)]) + text.encode()).ljust(64, b"\x00")
+        for card_type in ("ntag_ultralight", "mifare_classic_1k"):
+            with self.subTest(card_type=card_type):
+                fake = FakePn532(card_type=card_type)
+                if "classic" in card_type:
+                    fake.classic_blocks = dict(zip((4, 5, 6, 8), [payload[i:i+16] for i in range(0, 64, 16)]))
+                else:
+                    fake.ntag_pages = {4 + i // 4: payload[i:i+16] for i in range(0, 64, 16)}
+                self.assertEqual(make_backend(fake).read(), text)
+                self.assertEqual(fake.rf_calls, [True, False])
+                self.assertFalse(fake.rf_enabled)
+                if "classic" in card_type:
+                    self.assertEqual(fake.actions[-2:], [("auth", 8), ("classic_read", 8)])
+                else:
+                    self.assertEqual(fake.actions[-1], ("ntag_read", 16))
+
+    def test_multi_page_and_block_writes_keep_rf_through_complete_payload(self):
+        for card_type in ("ntag_ultralight", "mifare_classic_1k"):
+            with self.subTest(card_type=card_type):
+                fake = FakePn532(card_type=card_type)
+                make_backend(fake).write("a" * 60)
+                self.assertEqual(fake.rf_calls, [True, False])
+                self.assertFalse(fake.rf_enabled)
+                writes = fake.classic_writes if "classic" in card_type else fake.ntag_writes
+                self.assertEqual(b"".join(data for _, data in writes)[:61], b"\x3c" + b"a" * 60)
+
+    def test_rf_cleanup_on_timeout_auth_failure_transfer_failure_and_interruption(self):
+        for operation in ("read", "write"):
+            for failure in ("no_card", "auth", "transfer", "interrupt", "transport"):
+                with self.subTest(operation=operation, failure=failure):
+                    fake = FakePn532(card_type="mifare_classic_1k")
+                    fake.classic_blocks[4] = b"\x01a" + bytes(14)
+                    if failure == "no_card":
+                        fake.card = None
+                    elif failure == "auth":
+                        fake.auth_ok = False
+                    else:
+                        method = "classic_read" if operation == "read" else "classic_write"
+                        error = {"transfer": NfcError("transfer"), "interrupt": KeyboardInterrupt(),
+                                 "transport": OSError("bus failed")}[failure]
+                        self.enterContext(patch.object(fake, method, side_effect=error))
+                    expected = KeyboardInterrupt if failure == "interrupt" else NfcError
+                    with self.assertRaises(expected):
+                        if operation == "read":
+                            make_backend(fake).read()
+                        else:
+                            make_backend(fake).write("abc")
+                    self.assertFalse(fake.rf_enabled)
+                    self.assertEqual(fake.rf_calls[-1], False)
+
+    def test_cleanup_failure_surfaces_and_keeps_original_context(self):
+        for operation_error in (None, NfcNoCard("none"), OSError("bus failed"), KeyboardInterrupt()):
+            with self.subTest(operation_error=operation_error):
+                fake = FakePn532()
+                fake.ntag_pages[4] = b"\x01a" + bytes(14)
+                original_set_rf = fake.set_rf_field
+                def set_rf(enabled):
+                    if not enabled:
+                        raise OSError("off broken")
+                    return original_set_rf(enabled)
+                self.enterContext(patch.object(fake, "set_rf_field", side_effect=set_rf))
+                if operation_error:
+                    self.enterContext(patch.object(fake, "ntag_read", side_effect=operation_error))
+                with self.assertRaisesRegex(NfcError, "RF-off failed") as raised:
+                    make_backend(fake).read()
+                error, contexts = raised.exception, []
+                while error is not None:
+                    contexts.append(error)
+                    error = error.__context__
+                if operation_error:
+                    self.assertIn(operation_error, contexts)
+
+    def test_malformed_payload_and_later_classic_auth_failure_are_errors(self):
+        fake = FakePn532()
+        fake.ntag_pages[4] = b"\x01\xff" + bytes(14)
+        with self.assertRaises(NfcError):
+            make_backend(fake).read()
+        self.assertFalse(fake.rf_enabled)
+        classic = FakePn532(card_type="mifare_classic_1k")
+        classic.classic_blocks[4] = b"\x20" + b"a" * 15
+        with patch.object(classic, "classic_auth", side_effect=[True, False]):
+            with self.assertRaisesRegex(NfcError, "Read failed"):
+                make_backend(classic).read()
+        self.assertFalse(classic.rf_enabled)
+
+    def test_false_rf_off_result_is_an_error(self):
+        fake = FakePn532(card=None)
+        with patch.object(fake, "set_rf_field", return_value=False):
+            with self.assertRaisesRegex(NfcError, "RF-off failed"):
+                make_backend(fake).read()
+
+    def test_boardless_read_and_write_remain_interactive(self):
+        with patch("builtins.input", side_effect=[" abc-123 ", "y"]), patch("builtins.print") as output:
+            backend = BoardlessBackend()
+            self.assertEqual(backend.read(), "abc-123")
+            backend.write("abc-123")
+            output.assert_called_once_with('[BOARDLESS] Write: "abc-123"')
 
 
 if __name__ == "__main__":

@@ -1,4 +1,5 @@
 import unittest
+import threading
 
 from api.nfc_coordinator import NfcCoordinator
 from lib.nfc import NfcError, NfcNoCard
@@ -30,7 +31,7 @@ class NfcCoordinatorTestCase(unittest.TestCase):
         coordinator.set_mode("standby")
         coordinator.tick()
 
-        self.assertEqual(read_calls, [1])
+        self.assertEqual(read_calls, [0.2])
 
     def test_scan_event_suppression_continues_through_errors_after_success(self):
         reads = iter([
@@ -194,6 +195,53 @@ class NfcCoordinatorTestCase(unittest.TestCase):
 
         self.assertEqual(write_messages, [{"event": "link_error", "data": {"record_id": "1"}}])
         self.assertEqual(persist_messages, [{"event": "link_error", "data": {"record_id": "2"}}])
+
+    def test_mode_change_and_write_request_do_not_compete_with_inflight_read(self):
+        reading = threading.Event()
+        finish_read = threading.Event()
+        writing = threading.Event()
+        calls, failures = [], []
+
+        def read_nfc(timeout):
+            calls.append(("read_started", timeout))
+            reading.set()
+            if not finish_read.wait(2):
+                raise AssertionError("Read was not released")
+            calls.append(("read_cleanup", None))
+            return "1"
+
+        def write_nfc(record_id):
+            writing.set()
+            calls.append(("write", record_id))
+
+        coordinator, _ = self.make_coordinator(read_nfc=read_nfc, write_nfc=write_nfc)
+        coordinator.set_mode("standby")
+        def tick():
+            try:
+                coordinator.tick()
+            except BaseException as error:
+                failures.append(error)
+
+        first, second = threading.Thread(target=tick), threading.Thread(target=tick)
+        first.start()
+        try:
+            self.assertTrue(reading.wait(2))
+            coordinator.set_mode("re-link")
+            coordinator.request_write("abc-123", mode="re-link")
+            self.assertEqual(calls, [("read_started", 0.2)])
+            second.start()
+            self.assertFalse(writing.wait(0.02))
+        finally:
+            finish_read.set()
+            first.join(2)
+            if second.ident is not None:
+                second.join(2)
+        self.assertFalse(first.is_alive())
+        self.assertFalse(second.is_alive())
+        self.assertEqual(failures, [])
+        self.assertEqual(calls, [("read_started", 0.2), ("read_cleanup", None), ("write", "abc-123")])
+        coordinator.tick()
+        self.assertEqual(len(calls), 3)
 
 
 if __name__ == "__main__":

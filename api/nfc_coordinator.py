@@ -17,7 +17,7 @@ class NfcCoordinator:
         persist_link_success=None,
         logger=None,
         poll_interval_seconds=1,
-        read_timeout_seconds=1,
+        read_timeout_seconds=0.2,
         sleep=time.sleep,
     ):
         self.read_nfc = read_nfc
@@ -34,6 +34,7 @@ class NfcCoordinator:
         self.scan_error_emitted = False
         self.active_write_request = None
         self._lock = threading.Lock()
+        self._operation_lock = threading.Lock()
         self._stop_event = threading.Event()
 
     def set_mode(self, mode):
@@ -58,21 +59,20 @@ class NfcCoordinator:
             self.sleep(self.poll_interval_seconds)
 
     def tick(self):
-        request = self._get_active_write_request()
-        if request is not None:
-            self._process_write_request(request)
-            return
-
-        if self._get_current_mode() == STANDBY_MODE:
-            self._poll_standby_once()
+        # Only the worker executes hardware commands. Claim eligibility under the
+        # state lock; a later mode change lets this bounded operation clean up.
+        with self._operation_lock:
+            with self._lock:
+                request = dict(self.active_write_request) if self.active_write_request else None
+                scan = request is None and self.current_mode == STANDBY_MODE
+            if request is not None:
+                self._process_write_request(request)
+            elif scan:
+                self._poll_standby_once()
 
     def _get_current_mode(self):
         with self._lock:
             return self.current_mode
-
-    def _get_active_write_request(self):
-        with self._lock:
-            return dict(self.active_write_request) if self.active_write_request else None
 
     def _clear_active_write_request(self, request):
         with self._lock:
@@ -87,11 +87,17 @@ class NfcCoordinator:
             return
         except NfcError as error:
             self._log_error("NFC read failed: %s", error)
+            if self._get_current_mode() != STANDBY_MODE:
+                return
             if self.last_successful_record_id is None and not self.scan_error_emitted:
                 self._broadcast({"event": "scan", "data": {"record_id": None}})
                 self.scan_error_emitted = True
             return
 
+        # Backend cleanup has completed. A late scan must not switch the UI
+        # back to Standby after the user selected an inactive mode.
+        if self._get_current_mode() != STANDBY_MODE:
+            return
         record_id = str(record_id)
         self.last_successful_record_id = record_id
         self.scan_error_emitted = False

@@ -1,17 +1,12 @@
 """NFC library: hardware-backed or boardless simulation backend."""
 
 import os
+from contextlib import contextmanager
+
+from lib.nfc_errors import NfcError, NfcNoCard
 
 PN532_MODE = 1  # 0 = UART, 1 = I2C
 START_BLOCK = 4
-
-
-class NfcError(Exception):
-    """Raised on NFC read/write failure."""
-
-
-class NfcNoCard(NfcError):
-    """Raised when a read/write attempt times out before detecting a card."""
 
 
 # ── PN532 hardware backend ────────────────────────────────────────────────────
@@ -27,7 +22,27 @@ class Pn532Backend:
             conn = 6                # I2C bus number
         self._nfc = PN532(conn)
 
+    @contextmanager
+    def _rf_operation(self):
+        try:
+            try:
+                yield
+            except NfcError:
+                raise
+            except Exception as error:
+                raise NfcError(f"NFC operation failed: {error}") from error
+        finally:
+            try:
+                if not self._nfc.set_rf_field(False):
+                    raise NfcError("RF-off command was not confirmed")
+            except Exception as error:
+                raise NfcError(f"RF-off failed: {error}") from error
+
     def read(self, timeout: float = 30) -> str:
+        with self._rf_operation():
+            return self._read(timeout)
+
+    def _read(self, timeout) -> str:
         card = self._nfc.wait_for_card(timeout=timeout)
         if not card:
             raise NfcNoCard("No card detected")
@@ -55,13 +70,13 @@ class Pn532Backend:
             while self._nfc.classic_is_trailer(block):
                 block += 1
             if not self._nfc.classic_auth(block, uid):
-                break
+                return None
             data = self._nfc.classic_read(block)
             if not data:
                 return None
             raw.extend(data)
             block += 1
-        return raw[1 : 1 + text_len].decode("utf-8", errors="replace")
+        return raw[1 : 1 + text_len].decode("utf-8")
 
     def _read_ntag(self) -> str | None:
         data = self._nfc.ntag_read(START_BLOCK)
@@ -78,9 +93,13 @@ class Pn532Backend:
                 return None
             raw.extend(data)
             page += 4
-        return raw[1 : 1 + text_len].decode("utf-8", errors="replace")
+        return raw[1 : 1 + text_len].decode("utf-8")
 
     def write(self, text: str) -> None:
+        with self._rf_operation():
+            self._write(text)
+
+    def _write(self, text: str) -> None:
         card = self._nfc.wait_for_card(timeout=30)
         if not card:
             raise NfcError("No card detected")
