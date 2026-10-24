@@ -52,7 +52,7 @@ class PN532(PN532Commands):
     def _write_frame(self, frame, deadline):
         self.bus.i2c_rdwr(i2c_msg.write(self.address, frame))
 
-    def _read_chunk(self, deadline):
+    def _read_chunk(self, deadline, *, acknowledged=False):
         while (remaining := deadline - time.monotonic()) > 0:
             status = i2c_msg.read(self.address, 1)
             self.bus.i2c_rdwr(status)
@@ -60,12 +60,19 @@ class PN532(PN532Commands):
             if remaining <= 0:
                 return b''
             if bytes(status) == b'\x01':
-                # Includes the ready byte; remaining bytes beyond a frame are padding.
-                response = i2c_msg.read(self.address, 65)
+                # Read the six-byte ACK separately, as in the original I2C
+                # driver. Reading a response-sized buffer here can stall I2C.
+                count = 64 if acknowledged else len(self._ACK)
+                response = i2c_msg.read(self.address, count + 1)
                 self.bus.i2c_rdwr(response)
                 raw = bytes(response)
                 if not raw or raw[0] != 1:
                     raise NfcError("Malformed I2C ready status")
+                if not acknowledged and raw[1:] != self._ACK:
+                    # A previous command's response can precede the new ACK.
+                    # The short I2C read discards it; do not join that fragment
+                    # to the next frame in the shared UART stream parser.
+                    continue
                 return raw[1:]
             time.sleep(min(0.005, remaining))
         return b''

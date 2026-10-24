@@ -7,8 +7,8 @@ Software implementation is complete and ready for review/deployment. Python 3.14
 | --- | --- |
 | Original NFC baseline before implementation | 17 tests passed |
 | `python3.14 -m unittest discover -s tests -p 'test_nfc*.py'` | 25 tests passed |
-| `python3.14 -m unittest discover -s tests -p 'test_pn532.py'` | 21 tests passed |
-| Complete Python suite, including API checks (command below) | 136 tests passed |
+| `python3.14 -m unittest discover -s tests -p 'test_pn532.py'` | 23 tests passed |
+| Complete Python suite, including API checks (command below) | 138 tests passed |
 | `node --test tests/*.test.js` | 21 tests passed |
 | `openspec validate duty-cycle-nfc-rf-field --strict --no-interactive` | Passed before implementation and after final code changes |
 | `git diff --check` | Passed |
@@ -41,6 +41,20 @@ finishes successfully.
 | Link/Re-link require requested write, serialized with in-flight reads | `test_link_writes_require_request_and_keep_rf_through_every_page`, threaded coordinator serialization regression |
 | Signatures, payloads, boardless behavior, event formats, replacement, duplicate suppression and last-record preservation | Original NFC regressions retained, new boardless regression, complete API suite and all 21 UI tests |
 | Timing defaults and cleanup behavior documented | Change design; added README verification block removed as requested |
+
+## Startup regression fix
+
+The deployed startup failure exposed an I2C regression: the driver requested a
+64-byte response buffer while receiving a six-byte ACK. It now reads the ACK
+separately, matching the earlier working driver. The fake I2C transport now
+rejects oversized ACK reads and truncates short reads instead of supplying an
+entire frame regardless of the request length.
+
+`test_i2c_startup_reads_ack_separately` reproduced a transport timeout followed by
+RF-off cleanup failure before the fix and passes afterward. The new startup
+error regression also verifies that the original failure remains visible when
+cleanup fails, and that the transport still closes. These are host regressions;
+the deployed Pi startup should be retried with the patch.
 
 ## After deployment: simple end-to-end check
 

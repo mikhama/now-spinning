@@ -33,7 +33,7 @@ class PN532(PN532Commands):
         if self.ser.write(frame) != len(frame):
             raise NfcError("Incomplete PN532 UART command write")
 
-    def _read_chunk(self, deadline):
+    def _read_chunk(self, deadline, *, acknowledged=False):
         while (remaining := deadline - time.monotonic()) > 0:
             available = self.ser.in_waiting
             remaining = deadline - time.monotonic()

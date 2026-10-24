@@ -37,8 +37,14 @@ class PN532Commands:
                 raise
             except Exception as error:
                 raise NfcError(f"PN532 initialization failed: {error}") from error
-        except BaseException:
-            self.close()
+        except BaseException as initialization_error:
+            try:
+                self.close()
+            except Exception as cleanup_error:
+                raise NfcError(
+                    f"PN532 initialization failed: {initialization_error}; "
+                    f"cleanup also failed: {cleanup_error}"
+                ) from initialization_error
             raise
 
     def _build_frame(self, data):
@@ -89,7 +95,7 @@ class PN532Commands:
                 raise NfcError(f"PN532 command {cmd:#04x} timed out")
             self._write_frame(self._build_frame(bytes([self.HOST_TO_PN, cmd]) + params), deadline)
             while time.monotonic() < deadline:
-                buffer.extend(self._read_chunk(deadline))
+                buffer.extend(self._read_chunk(deadline, acknowledged=acknowledged))
                 if time.monotonic() > deadline:
                     break
                 while (frame := self._pop_frame(buffer)) is not None:

@@ -21,3 +21,9 @@ Leave this change ready for review and unarchived. Do not change or archive `kee
 
 After deployment, use the short end-to-end smoke check in `verification.md`.
 This manual follow-up does not block implementation and requires no measuring equipment.
+
+## 4. Deployed startup regression
+
+- [x] 4.1 Restore separate six-byte I2C ACK reads and cover startup with a transport that rejects oversized ACK reads.
+- [x] 4.2 Include the original initialization error when RF-off cleanup also fails, while still closing the connection.
+- [x] 4.3 Run focused NFC tests, the Python/API suite, and strict OpenSpec validation for the fix.

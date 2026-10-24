@@ -98,14 +98,21 @@ class Message:
 
 
 class I2cWire(Wire):
+    def __init__(self, clock):
+        super().__init__(clock)
+        self.read_sizes = []
+
     def i2c_rdwr(self, message):
         if message.count == 0:
             self.write(message.data)
         elif message.count == 1:
             message.data = bytes([int(self.ready())])
         else:
+            self.read_sizes.append(message.count)
             packet = self.frames.pop(0)[1] if self.ready() else b""
-            message.data = b"\x01" + packet.ljust(message.count - 1, b"\x00")
+            if packet == PN532Commands._ACK and message.count > len(packet) + 1:
+                raise TimeoutError(110, "I2C read exceeds the available ACK frame")
+            message.data = b"\x01" + packet[:message.count - 1].ljust(message.count - 1, b"\x00")
 
 
 class DriverTestCase(unittest.TestCase):
@@ -151,6 +158,27 @@ class DriverTestCase(unittest.TestCase):
                 self.assertTrue(driver.set_rf_field(True))
                 self.assertTrue(driver.set_rf_field(False))
                 self.assertEqual([args for _, _, args in wire.commands[-2:]], [b"\x01\x01", b"\x01\x00"])
+
+    def test_i2c_startup_reads_ack_separately(self):
+        driver, wire = self.driver("i2c")
+        self.assertFalse(wire.rf)
+        # One status byte plus the six-byte ACK, then the response buffer.
+        self.assertEqual(wire.read_sizes, [7, 65, 7, 65, 7, 65])
+        driver.set_rf_field(True)
+        driver.set_rf_field(False)
+        self.assertEqual(wire.read_sizes[-4:], [7, 65, 7, 65])
+
+    def test_startup_cleanup_failure_reports_initial_error_too(self):
+        for kind in ("uart", "i2c"):
+            with self.subTest(kind=kind):
+                driver, wire = self.driver(kind, initialize=False)
+                initial_error = NfcError("SAM handshake timed out")
+                wire.handler = lambda cmd, args: (_ for _ in ()).throw(OSError("bus timed out"))
+                with patch.object(driver, "_wakeup", side_effect=initial_error):
+                    with self.assertRaisesRegex(NfcError, "SAM handshake timed out.*RF-off failed") as raised:
+                        driver._initialize()
+                self.assertIs(raised.exception.__cause__, initial_error)
+                self.assertTrue(wire.closed)
 
     def test_delayed_response_after_ack_and_fragmented_uart_reply(self):
         for kind in ("uart", "i2c"):
