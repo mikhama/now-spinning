@@ -455,7 +455,7 @@ class DriverTestCase(unittest.TestCase):
                             driver.read_passive_target()
                     self.assertFalse(wire.rf)
 
-    def test_no_card_waits_have_one_second_rf_off_pauses(self):
+    def test_no_card_waits_have_half_second_rf_off_pauses(self):
         for kind in ("uart", "i2c"):
             with self.subTest(kind=kind):
                 driver, wire = self.driver(kind)
@@ -466,9 +466,9 @@ class DriverTestCase(unittest.TestCase):
                 start = self.clock.now
                 self.assertIsNone(driver.wait_for_card(timeout=3))
                 probes = [when for when, cmd, _ in wire.commands if cmd == 0x4a]
-                self.assertEqual(len(probes), 3)
-                self.assertTrue(all(b - a >= 1 for a, b in zip(probes, probes[1:])))
-                self.assertGreaterEqual(self.clock.sleeps.count(1.0), 2)
+                self.assertEqual(len(probes), 6)
+                self.assertTrue(all(b - a >= 0.5 for a, b in zip(probes, probes[1:])))
+                self.assertGreaterEqual(self.clock.sleeps.count(0.5), 5)
                 self.assertAlmostEqual(self.clock.now - start, 3)
                 self.assertFalse(wire.rf)
 
@@ -484,8 +484,8 @@ class DriverTestCase(unittest.TestCase):
                     backend.write("1")
                 self.assertAlmostEqual(self.clock.now - start, 30, delta=0.03)
                 probes = [when for when, cmd, _ in wire.commands if cmd == 0x4a]
-                self.assertGreater(len(probes), 20)
-                self.assertTrue(all(b - a >= 1 for a, b in zip(probes, probes[1:])))
+                self.assertGreater(len(probes), 40)
+                self.assertTrue(all(b - a >= 0.5 for a, b in zip(probes, probes[1:])))
                 self.assertFalse(wire.rf)
 
     def test_found_card_retains_rf_for_payload(self):
@@ -627,7 +627,7 @@ class DriverTestCase(unittest.TestCase):
                     coordinator.request_write("abc-123", mode=mode)
                     coordinator.tick()
                     self.assertEqual(len(probes), 3)
-                    self.assertTrue(all(b - a >= 1 for a, b in zip(probes, probes[1:])))
+                    self.assertTrue(all(b - a >= 0.5 for a, b in zip(probes, probes[1:])))
                     writes = [args for _, cmd, args in wire.commands if cmd == 0x40]
                     self.assertEqual(len(writes), 2)
                     self.assertEqual(b"".join(args[3:] for args in writes), b"\x07abc-123")
@@ -636,7 +636,7 @@ class DriverTestCase(unittest.TestCase):
                     coordinator.tick()
                     self.assertEqual(len(wire.commands), count)
 
-    def test_worker_sleeps_one_second_with_rf_off_after_each_outcome(self):
+    def test_worker_sleeps_half_second_with_rf_off_after_each_outcome(self):
         for kind in ("uart", "i2c"):
             for outcome in ("absence", "success", "failure", "write"):
                 with self.subTest(kind=kind, outcome=outcome):
@@ -664,7 +664,7 @@ class DriverTestCase(unittest.TestCase):
                     if outcome == "write":
                         coordinator.request_write("abc-123", mode="link")
                     coordinator.run_forever()
-                    self.assertEqual(pauses, [1])
+                    self.assertEqual(pauses, [0.5])
 
 
 if __name__ == "__main__":

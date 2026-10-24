@@ -1,6 +1,6 @@
 ## Host verification — 2026-10-24
 
-Host checks pass; the restored I2C polling behavior is ready for deployment and a normal Pi startup check. Python 3.14 was used; the system
+Host checks pass. The user confirmed that the app is working on the Pi after a full power disconnect, then requested reducing the RF-off pause from one second to 500 ms. Coordinator and between-probe pauses now use 500 ms; detection remains capped at 200 ms. Python 3.14 was used; the system
 `python3` is 3.9 and cannot import the pre-existing union type annotations.
 
 | Check | Result |
@@ -36,7 +36,7 @@ finishes successfully.
 | Only valid zero-target replies mean absence; failed RF and transport commands are errors | `test_zero_targets_is_absence_but_malformed_targets_are_errors`, `test_missing_ack_or_response_is_not_absence`, RF-on/transport failure tests |
 | Complete multi-page/block transfers retain RF through authentication and payload | Multi-page/block read/write tests in `test_nfc.py`; wire-level write assertions in `test_pn532.py` |
 | Finally cleanup after success, no-card timeout, authentication/transfer failure, and interruption; explicit RF-off failures preserve original context | Backend cleanup matrix and context tests in `test_nfc.py`; driver cleanup context test in `test_pn532.py` |
-| One-second RF-off pauses between probes and after operations, 30-second write wait | `test_no_card_waits_have_one_second_rf_off_pauses`, `test_write_keeps_30_second_detection_limit_and_off_pauses`, `test_worker_sleeps_one_second_with_rf_off_after_each_outcome` |
+| 500 ms RF-off pauses between probes and after operations, 30-second write wait | `test_no_card_waits_have_half_second_rf_off_pauses`, `test_write_keeps_30_second_detection_limit_and_off_pauses`, `test_worker_sleeps_half_second_with_rf_off_after_each_outcome` |
 | Idle Play/Sync/Stylus/Link/Re-link/unknown modes off; transitions out of Standby including active success/absence/failure | Both-transport integration tests `test_inactive_modes_stay_off_after_standby_and_during_idle`, `test_transition_during_probe_cleans_up_without_mode_handler_commands`; late results cannot emit a scan returning the UI to Standby |
 | Link/Re-link require requested write, serialized with in-flight reads | `test_link_writes_require_request_and_keep_rf_through_every_page`, threaded coordinator serialization regression |
 | Signatures, payloads, boardless behavior, event formats, replacement, duplicate suppression and last-record preservation | Original NFC regressions retained, new boardless regression, complete API suite and all 21 UI tests |
@@ -70,10 +70,29 @@ Valid busy (`RDY=0`) frame replies also resume polling instead of raising a
 malformed-status error. Tests cover recovery through startup/firmware/close
 and persistent busy replies exhausting the original shared deadline.
 
-After deploying these working-tree changes, run the diagnostic using the same
-virtual environment as the app (`./env/bin/python -m exp.nfc.nfc_debug_i2c`),
-then start kiosk mode normally. Pi success has not yet been reported for this
-polling retry correction.
+The next deployed traceback includes the polling correction and still fails
+on the first SAM command write with `OSError(5)`. This is not resolved by the
+polling corrections. Bus, address, initial delay, and SAM command bytes match
+the pre-change driver. The old constructor continued after setup write errors;
+the new constructor fails immediately.
+
+The user ran the pre-change driver from commit `dabfb02` in the app's virtual
+environment on the same Pi. It returned `BASELINE FIRMWARE: None`. Therefore
+the current communication failure also affects the old driver; a firmware
+response was recovered by changing driver code alone. After fully powering the
+Pi/reader off and on, the user reran the current diagnostic and reported:
+
+```text
+[1] /dev/i2c-6 opened OK
+[2] Device ACKed at 0x24  OK
+[3] GetFirmwareVersion via driver...
+  FOUND PN532 firmware 1.6
+```
+
+This confirms recovery and successful initialization/firmware communication on
+the Pi after a full power reset. The initiating cause of the stuck state is not
+proven. Kiosk scanning, linking, and mode changes remain the normal next
+end-to-end checks; no measuring equipment is needed.
 
 ## After deployment: simple end-to-end check
 

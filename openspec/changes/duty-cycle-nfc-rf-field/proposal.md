@@ -5,7 +5,7 @@ Stopping Python polling leaves the PN532 RF field powered, including during play
 ## What Changes
 
 - Add confirmed RF on/off control to both I2C and UART drivers, finite passive activation, monotonic shared command deadlines, and response command validation.
-- Probe for at most 200 ms, with a one-second RF-off pause between attempts and after operations; retain 30-second interactive waits.
+- Probe for at most 200 ms, with a 500 ms RF-off pause between attempts and after operations; retain 30-second interactive waits.
 - Keep RF enabled through authentication and complete payload transfer, then disable it on every exit path and before closing connections.
 - Keep inactive modes RF-off and serialize hardware operations in the NFC worker, allowing bounded in-flight work to clean up after a mode transition.
 - Preserve public NFC signatures, payloads, boardless behavior, events, duplicate suppression, and last-record retention.

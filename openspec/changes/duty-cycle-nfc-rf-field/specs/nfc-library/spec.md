@@ -28,7 +28,7 @@ Detection commands SHALL receive no more than 200 ms capped by the remaining cal
 - **THEN** the detection command SHALL use only the remaining budget across ACK and response
 
 ### Requirement: RF stays on only for active NFC work
-Detection SHALL enable RF for each probe and disable it after each unsuccessful probe. Repeated detection, including 30-second interactive write waits, SHALL pause RF-off for one second between probes, capped by the remaining caller deadline. A found card SHALL retain RF through authentication and the complete payload read or write. Backend `finally` cleanup SHALL disable RF after success, timeout, failure, and interruption. RF-off failures SHALL be explicit `NfcError` failures and SHALL preserve any original operation failure in exception context. Public NFC signatures, tag payloads and boardless behavior SHALL remain compatible.
+Detection SHALL enable RF for each probe and disable it after each unsuccessful probe. Repeated detection, including 30-second interactive write waits, SHALL pause RF-off for 500 ms between probes, capped by the remaining caller deadline. A found card SHALL retain RF through authentication and the complete payload read or write. Backend `finally` cleanup SHALL disable RF after success, timeout, failure, and interruption. RF-off failures SHALL be explicit `NfcError` failures and SHALL preserve any original operation failure in exception context. Public NFC signatures, tag payloads and boardless behavior SHALL remain compatible.
 
 #### Scenario: Multi-page or multi-block transfer
 - **WHEN** a detected card needs several page/block operations or authentications
@@ -36,7 +36,7 @@ Detection SHALL enable RF for each probe and disable it after each unsuccessful 
 
 #### Scenario: Repeated no-card detection
 - **WHEN** a valid probe returns zero targets during a long wait
-- **THEN** RF SHALL be disabled before a one-second pause and the next bounded probe
+- **THEN** RF SHALL be disabled before a 500 ms pause and the next bounded probe
 
 #### Scenario: Interrupted operation and cleanup failure
 - **WHEN** an operation fails or is interrupted and RF-off also fails

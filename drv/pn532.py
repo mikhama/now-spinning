@@ -24,7 +24,7 @@ class PN532Commands:
     DEFAULT_KEY = b'\xFF\xFF\xFF\xFF\xFF\xFF'
 
     DETECTION_TIMEOUT = 0.2
-    RF_OFF_PAUSE = 1.0
+    RF_OFF_PAUSE = 0.5
     _ACK = b'\x00\x00\xff\x00\xff\x00'
 
     def _initialize(self):

@@ -16,7 +16,7 @@ class NfcCoordinator:
         broadcast=None,
         persist_link_success=None,
         logger=None,
-        poll_interval_seconds=1,
+        poll_interval_seconds=0.5,
         read_timeout_seconds=0.2,
         sleep=time.sleep,
     ):

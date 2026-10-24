@@ -1,6 +1,6 @@
 ## Context
 
-Both drivers leave passive activation retries infinite and never explicitly disable RF. I2C spends the timeout twice (ACK and response); UART can return after ACK alone and neither validates response command/checksums. The single NFC coordinator worker already serializes reads/writes and sleeps one second after each tick. Mode handlers only update state. The existing last-record retention change is already implemented and stays separate.
+Both drivers leave passive activation retries infinite and never explicitly disable RF. I2C spends the timeout twice (ACK and response); UART can return after ACK alone and neither validates response command/checksums. The single NFC coordinator worker already serializes reads/writes. Mode handlers only update state. The existing last-record retention change is already implemented and stays separate.
 
 ## Goals / Non-Goals
 
@@ -19,9 +19,9 @@ Both drivers leave passive activation retries infinite and never explicitly disa
    Ready-status polling retains the previous driver's 10 ms polling interval and retries temporary I2C errors within the same command deadline. Persistent errors retain their errno and are reported as transport failures. Command writes and ACK/response frame reads are not blindly retried; errors identify which transfer failed.
 
    A frame read with status `RDY=0` is a valid busy reply, not a malformed response. Discard its irrelevant bytes and resume readiness polling under the same deadline.
-4. `wait_for_card` enables RF per probe, gives detection `min(0.2, remaining)` seconds, disables RF after absence/failure, and pauses RF-off for one second (capped by remaining interactive deadline). A found card transfers RF ownership to the backend until authentication and all pages/blocks finish. Public 30-second interactive waits stay intact; the coordinator supplies 200 ms by default.
+4. `wait_for_card` enables RF per probe, gives detection `min(0.2, remaining)` seconds, disables RF after absence/failure, and pauses RF-off for 500 ms (capped by remaining interactive deadline). A found card transfers RF ownership to the backend until authentication and all pages/blocks finish. Public 30-second interactive waits stay intact; the coordinator supplies 200 ms by default.
 5. Backend read/write use `finally` RF-off cleanup, including interruption. Cleanup failures explicitly report RF-off failure; Python exception context retains the original failure. Failed classic authentication or malformed UTF-8/short data must not yield a successful partial record.
-6. Mode changes update state under the coordinator lock and never send hardware commands. The worker checks eligibility atomically when claiming an operation, then finishes bounded in-flight processing and backend cleanup. If it is no longer in Standby, it discards a late scan result/error so the event cannot switch the UI back to Standby. Its existing one-second post-operation pause occurs with RF off. Idle Play, Sync, Stylus, Link/Re-link and unknown modes never initiate a probe; explicitly queued writes retain priority and serialization.
+6. Mode changes update state under the coordinator lock and never send hardware commands. The worker checks eligibility atomically when claiming an operation, then finishes bounded in-flight processing and backend cleanup. If it is no longer in Standby, it discards a late scan result/error so the event cannot switch the UI back to Standby. Its existing 500 ms post-operation pause occurs with RF off. Idle Play, Sync, Stylus, Link/Re-link and unknown modes never initiate a probe; explicitly queued writes retain priority and serialization.
 
 ## Risks / Trade-offs
 

@@ -1,16 +1,16 @@
 ## MODIFIED Requirements
 
 ### Requirement: Standby NFC polling runs only in standby
-The system SHALL perform real NFC scan polling only while the current UI mode is standby, including standby fallback states represented by standby errors. The coordinator SHALL default to a 200 ms detection timeout and retain a one-second RF-off pause after each operation, including successful record identification. Hardware commands SHALL remain serialized in the NFC worker. Entering a non-scanning mode SHALL prevent further standby scans; an already claimed operation SHALL finish bounded processing and RF-off cleanup before the worker becomes idle. Mode-change handlers SHALL NOT send hardware commands.
+The system SHALL perform real NFC scan polling only while the current UI mode is standby, including standby fallback states represented by standby errors. The coordinator SHALL default to a 200 ms detection timeout and retain a 500 ms RF-off pause after each operation, including successful record identification. Hardware commands SHALL remain serialized in the NFC worker. Entering a non-scanning mode SHALL prevent further standby scans; an already claimed operation SHALL finish bounded processing and RF-off cleanup before the worker becomes idle. Mode-change handlers SHALL NOT send hardware commands.
 
 #### Scenario: Standby mode polls for NFC tag
 - **WHEN** the current UI mode is standby
-- **THEN** the system SHALL check for an NFC tag about once per second using at most 200 ms per detection probe
-- **AND** it SHALL confirm RF-off before the one-second pause after the operation
+- **THEN** the system SHALL check for an NFC tag using at most 200 ms per detection probe with a 500 ms RF-off pause after each operation
+- **AND** it SHALL confirm RF-off before the 500 ms pause after the operation
 
 #### Scenario: Non-standby mode does not poll
 - **WHEN** the current UI mode is sync, link, re-link, stylus, or play
-- **THEN** the system SHALL NOT perform the once-per-second standby NFC tag check
+- **THEN** the system SHALL NOT perform standby NFC tag checks
 - **AND** RF SHALL remain off unless an explicitly requested NFC operation is active
 
 #### Scenario: Standby error state remains polling-eligible
