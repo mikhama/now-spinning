@@ -35,7 +35,7 @@ The mode button SHALL cycle through modes in this fixed order: standby → sync 
 - **THEN** the mode SHALL change to "standby"
 
 ### Requirement: Scan event transitions to standby
-When a `scan` event is received with a non-null `record_id` that resolves to a linked record, the UI SHALL transition to standby mode showing that record. When `record_id` is null, the UI SHALL show the NFC error state. When `record_id` refers to a non-existent or unlinked record, the UI SHALL show the not-found state. A scan of a different linked record SHALL reset the visible side and track to the first side and track. A scan of the same linked record SHALL preserve its selected side, including after a transient NFC read error. A null scan SHALL show the NFC error state without discarding the last valid record identity or selected side; if no record was active, the current record SHALL remain null.
+When a `scan` event is received with a non-null `record_id` that resolves to a linked record, the UI SHALL transition to standby mode showing that record. When `record_id` refers to a non-existent or unlinked record, the UI SHALL show the not-found state. A scan of a different linked record SHALL reset the visible side and track to the first side and track. A scan of the same linked record SHALL preserve its selected side. The UI SHALL show the NFC error state for a null scan only before any successful non-null scan or valid `current_record` has established a record during the running program. Once a non-null scan has resolved a view, a later null scan SHALL leave the current mode, record or not-found view, selected side and track, and playback timing unchanged. Real NFC polling SHALL occur only in Standby; a null scan received during Playing can only come from an external event source.
 
 #### Scenario: Scan with a newly selected linked record_id
 - **WHEN** a `scan` event is received with `{"record_id": "1"}` and record "1" exists with `linked: true` and is different from the current record
@@ -49,23 +49,42 @@ When a `scan` event is received with a non-null `record_id` that resolves to a l
 - **THEN** the mode SHALL change to "standby" with `currentRecordId` set to "1" and no error state
 - **AND** the selected side SHALL remain B
 
-#### Scenario: Scan with null record_id after a valid record
-- **WHEN** linked record "1" is selected on side B
-- **AND** a `scan` event is received with `{"record_id": null}`
-- **THEN** the mode SHALL change to "standby" with `standbyError` set to "nfc"
-- **AND** the record display and Side button SHALL be hidden
-- **AND** `currentRecordId` SHALL remain "1" and the selected side SHALL remain B
+#### Scenario: Externally supplied null scan after a valid record in Standby
+- **WHEN** linked record "1" is selected on side B in Standby
+- **AND** an external event source supplies a `scan` event with `{"record_id": null}`
+- **THEN** the mode SHALL remain "standby" with record "1" and Side B visible
+- **AND** `standbyError`, `currentRecordId`, `currentSideIndex`, and `currentTrackIndex` SHALL remain unchanged
+
+#### Scenario: Externally supplied null scan after a valid record in Playing
+- **WHEN** linked record "1" is selected in Playing with a playback time and selected side and track
+- **AND** an external event source supplies a `scan` event with `{"record_id": null}`
+- **THEN** the mode SHALL remain "play"
+- **AND** the record, playback time, selected side, and selected track SHALL remain unchanged
 
 #### Scenario: Scan with null record_id before a valid record
-- **WHEN** no record is active and a `scan` event is received with `{"record_id": null}`
+- **WHEN** no successful scan or valid `current_record` has established a record and a `scan` event is received with `{"record_id": null}`
 - **THEN** the mode SHALL change to "standby" with `standbyError` set to "nfc"
 - **AND** `currentRecordId` SHALL remain `null`
 
+#### Scenario: Repeated startup null scan
+- **WHEN** a null scan has already shown the startup NFC error and no successful scan has occurred
+- **AND** another null scan is received
+- **THEN** the UI SHALL keep the existing NFC error state without another transition
+
+#### Scenario: Startup error does not reappear after leaving it
+- **WHEN** a startup null scan has already shown the NFC error and the user switches to another mode
+- **AND** another null scan is received before any successful scan
+- **THEN** the UI SHALL remain in the selected mode and SHALL NOT show the NFC error again
+
 #### Scenario: Same linked record recovers after NFC error
-- **WHEN** linked record "1" was selected on side B before a null scan
-- **AND** a later `scan` event is received with `{"record_id": "1"}`
+- **WHEN** a startup null scan showed the NFC error
+- **AND** a later `scan` event is received with `{"record_id": "1"}` for a linked record
 - **THEN** the NFC error state SHALL clear and the record SHALL be shown in Standby
-- **AND** side B SHALL remain selected
+
+#### Scenario: Valid current record recovers startup NFC error
+- **WHEN** a startup null scan showed the NFC error
+- **AND** a valid `current_record` event establishes linked record "1"
+- **THEN** the NFC error state SHALL clear and record "1" SHALL be shown in Standby
 
 #### Scenario: Scan with unknown record_id
 - **WHEN** a `scan` event is received with `{"record_id": "999"}` and record "999" does not exist
@@ -76,6 +95,11 @@ When a `scan` event is received with a non-null `record_id` that resolves to a l
 - **WHEN** a `scan` event is received with `{"record_id": "1"}` and record "1" exists with `linked: false`
 - **THEN** the mode SHALL change to "standby" with `standbyError` set to "not-found"
 - **AND** `currentRecordId` SHALL be `null`
+
+#### Scenario: External null scan after unknown or unlinked scan
+- **WHEN** a successful non-null scan selected the Record Not Found view
+- **AND** a later externally supplied null scan is received
+- **THEN** the UI SHALL keep the Record Not Found view and SHALL NOT show NFC Reading Error
 
 ### Requirement: Play/stop status events
 When a `status` event with `status: "play"` is received, the UI SHALL transition to play mode without synthesizing a fallback record. If that play event includes a `time` field formatted as `MM:SS`, the UI SHALL store that exact value as the current playback time for Play mode, parse it as the latest boardless elapsed playback time, and treat the turntable as spinning. The UI SHALL NOT store a separate `spinning` payload field. When `status: "stop"` is received, the UI SHALL transition to standby mode while preserving the current record or standby error context and clearing stored Play-only timing state. If playback stops after at least 60 seconds of raw elapsed playback, or at or after 20 seconds before the selected side end when that side has a positive estimated duration, including any overrun, the selected side SHALL advance to the next side before Play-only timing state is cleared. A stop that satisfies neither condition SHALL keep the selected side.
@@ -194,22 +218,30 @@ When the UI initializes without a URL hash, it SHALL start in standby mode with 
 - **AND** `standbyError` SHALL be "not-found"
 
 ### Requirement: Standby NFC polling runs only in standby
-The system SHALL perform real NFC scan polling only while the current UI mode is standby, including standby fallback states represented by standby errors.
+The system SHALL perform real NFC scan polling only while the current UI mode is standby, including standby fallback states represented by standby errors. The coordinator SHALL default to a 200 ms detection timeout and retain a 500 ms RF-off pause after each operation, including successful record identification. Hardware commands SHALL remain serialized in the NFC worker. Entering a non-scanning mode SHALL prevent further standby scans; an already claimed operation SHALL finish bounded processing and RF-off cleanup before the worker becomes idle. Mode-change handlers SHALL NOT send hardware commands.
 
 #### Scenario: Standby mode polls for NFC tag
 - **WHEN** the current UI mode is standby
-- **THEN** the system SHALL check for an NFC tag about once per second
+- **THEN** the system SHALL check for an NFC tag using at most 200 ms per detection probe with a 500 ms RF-off pause after each operation
+- **AND** it SHALL confirm RF-off before the 500 ms pause after the operation
 
 #### Scenario: Non-standby mode does not poll
 - **WHEN** the current UI mode is sync, link, re-link, stylus, or play
-- **THEN** the system SHALL NOT perform the once-per-second standby NFC tag check
+- **THEN** the system SHALL NOT perform standby NFC tag checks
+- **AND** RF SHALL remain off unless an explicitly requested NFC operation is active
 
 #### Scenario: Standby error state remains polling-eligible
 - **WHEN** the current UI mode is standby with `standbyError` set to `not-found` or `nfc`
 - **THEN** the system SHALL treat the state as standby for NFC polling eligibility
 
+#### Scenario: Mode changes during active standby attempt
+- **WHEN** a standby attempt is already active and the mode changes to a non-scanning mode
+- **THEN** the worker SHALL finish the bounded operation and RF-off cleanup before becoming idle
+- **AND** it SHALL NOT start another standby attempt while that mode remains active
+- **AND** it SHALL discard a late scan result or error event that would return the UI to Standby
+
 ### Requirement: Standby NFC scan events preserve last valid record
-During standby NFC polling, the system SHALL track the last successfully decoded record ID for duplicate suppression and SHALL broadcast scan events when the decoded ID changes, an NFC read error occurs, or a successful scan recovers from an emitted NFC read error. The frontend SHALL keep the state resolved from the last scan when a tag leaves the field.
+During standby NFC polling, the system SHALL track the last successfully decoded record ID for duplicate suppression and SHALL broadcast a scan event when the decoded ID changes. Before any successful read, it SHALL broadcast at most one null scan for NFC read failures, including when no-card polls occur between failures. After any successful read, NFC read failures SHALL NOT broadcast null scans or clear the last emitted record ID. The frontend SHALL keep the state resolved from the last scan when a tag leaves the field or a later read fails.
 
 #### Scenario: First successful standby scan is emitted
 - **WHEN** standby NFC polling reads record id `1` and no record id has been emitted yet
@@ -223,7 +255,7 @@ During standby NFC polling, the system SHALL track the last successfully decoded
 - **AND** the frontend SHALL NOT show the standby NFC error state
 
 #### Scenario: Same record remains in field
-- **WHEN** standby NFC polling reads record id `1` after record id `1` was already emitted without an intervening NFC read error
+- **WHEN** standby NFC polling reads record id `1` after record id `1` was already emitted
 - **THEN** the system SHALL NOT broadcast another scan event
 
 #### Scenario: Tag leaves field after valid scan
@@ -241,29 +273,51 @@ During standby NFC polling, the system SHALL track the last successfully decoded
 - **AND** a later successful poll reads record id `2`
 - **THEN** the system SHALL broadcast `{"event":"scan","data":{"record_id":"2"}}`
 
-#### Scenario: NFC read error is emitted
-- **WHEN** standby NFC polling encounters an NFC read error
+#### Scenario: First startup NFC read error is emitted
+- **WHEN** standby NFC polling encounters an NFC read error before any successful tag read
 - **THEN** the system SHALL broadcast `{"event":"scan","data":{"record_id":null}}`
 - **AND** the frontend SHALL show the standby NFC error state
 
-#### Scenario: Same record recovers after NFC read error
-- **WHEN** standby NFC polling previously emitted record id `1`
-- **AND** a later NFC read error caused `{"event":"scan","data":{"record_id":null}}` to be emitted
+#### Scenario: Repeated startup read errors with no-card polls
+- **WHEN** an NFC read error has already been emitted before any successful read
+- **AND** subsequent polls report read errors or no card
+- **THEN** the system SHALL NOT broadcast another scan event
+
+#### Scenario: First successful read recovers from startup error
+- **WHEN** standby NFC polling emitted a startup null scan
 - **AND** a later successful poll reads record id `1`, with or without intervening no-card polls
 - **THEN** the system SHALL broadcast `{"event":"scan","data":{"record_id":"1"}}`
 - **AND** the frontend SHALL resolve record id `1` instead of retaining the standby NFC error state
+
+#### Scenario: Read error after a successful scan
+- **WHEN** standby NFC polling previously emitted record id `1`
+- **AND** a later NFC read fails
+- **THEN** the system SHALL NOT broadcast a null scan
+- **AND** a later successful read of record id `1` SHALL remain suppressed as a duplicate
 
 #### Scenario: No-card is not an error
 - **WHEN** standby NFC polling detects no card in the field
 - **THEN** the system SHALL NOT broadcast `{"event":"scan","data":{"record_id":null}}`
 
 ### Requirement: Real scan event payloads match boardless scan events
-Real NFC standby scan broadcasts SHALL use the same event names and payload shapes as boardless scan events.
+Real NFC standby scan broadcasts SHALL use the same event names and payload shapes as boardless scan events. A real NFC error payload SHALL be sent only once before the first successful NFC read.
 
 #### Scenario: Real scan success payload
 - **WHEN** real NFC standby polling reads record id `1`
 - **THEN** the frontend SHALL receive `{"event":"scan","data":{"record_id":"1"}}`
 
-#### Scenario: Real scan error payload
-- **WHEN** real NFC standby polling reports an NFC read error
+#### Scenario: Real startup scan error payload
+- **WHEN** real NFC standby polling reports the first NFC read error before any successful read
 - **THEN** the frontend SHALL receive `{"event":"scan","data":{"record_id":null}}`
+
+### Requirement: Inactive modes keep NFC RF off
+Play, Sync, Stylus, idle Link/Re-link, and every other mode without an active NFC operation SHALL keep RF off. Link/Re-link SHALL enable RF only for explicitly requested writes and their bounded probes, keep RF off between probes and after completion, and SHALL serialize writes with reads in the worker. Duplicate suppression, record replacement, last-record retention and event formats SHALL remain unchanged.
+
+#### Scenario: Idle inactive modes
+- **WHEN** Play, Sync, Stylus, Link/Re-link, or an unknown mode has no active NFC operation
+- **THEN** RF SHALL remain off and no new standby probe SHALL begin
+
+#### Scenario: Explicit Link or Re-link write
+- **WHEN** an explicit write is requested in Link or Re-link
+- **THEN** only the NFC worker SHALL execute it, using bounded RF-on probes and RF-off pauses
+- **AND** RF SHALL be off after the complete write or any failure
