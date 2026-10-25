@@ -226,10 +226,7 @@ Hours must be finite and zero or more. A missing database or stylus, invalid
 hours, or a failed save produces an error and a nonzero exit status. The tool
 does not create a database or missing stylus.
 
-Collection sync ignores `distance_hours` from `my-musical-journey`, starts new
-styli at zero, and preserves existing local totals. You can remove
-`"distance_hours": 97.3` from that repository's stylus data; existing Pi databases
-retain their hours. On a new Pi, sync the collection first, then stop the app
+On a new Pi, sync the collection first, then stop the app
 and use `set` to enter the initial total before restarting.
 
 ### NFC
@@ -285,4 +282,3 @@ For my **Dual 721** constants are the next:
 ## TODOs:
 1. Stylus prev/next buttons - saving current selected stylus.
 2. Played albums log with duration, and script to get results.
-3. Add script to cleanup stylus table completely.
