@@ -39,12 +39,14 @@ class StylusHoursTracker:
 
         data = message.get("data") or {}
         status = data.get("status")
-        if status == "play":
-            return self.process_play(data.get("time"))
-        if status == "stop":
-            self.flush_pending()
-            with self.lock:
-                self.last_elapsed_seconds = None
+        with self.lock:
+            if status == "play":
+                return self.process_play(data.get("time"))
+            if status == "stop":
+                try:
+                    self.flush_pending()
+                finally:
+                    self.last_elapsed_seconds = None
         return []
 
     def process_play(self, time_value):
@@ -82,15 +84,30 @@ class StylusHoursTracker:
     def flush_periodic(self):
         with self.lock:
             flush_seconds = (self.pending_seconds // self.flush_interval_seconds) * self.flush_interval_seconds
-        if flush_seconds > 0:
-            self._flush_seconds(flush_seconds)
+            if flush_seconds > 0:
+                self._flush_seconds(flush_seconds)
 
     def flush_pending(self):
         with self.lock:
             flush_seconds = self.pending_seconds
-        if flush_seconds > 0:
-            return self._flush_seconds(flush_seconds)
-        return True
+            if flush_seconds > 0:
+                return self._flush_seconds(flush_seconds)
+            return True
+
+    def activate_stylus(self, stylus, persist_selection):
+        """Switch a validated target while the caller holds the playback guard lock."""
+        with self.lock:
+            if stylus["active"]:
+                return
+            if not self.flush_pending():
+                raise RuntimeError("Pending stylus usage could not be persisted")
+            selected = persist_selection(stylus["id"])
+            if selected is None:
+                raise LookupError("Stylus does not exist")
+            self.active_stylus_id = str(selected["id"])
+            self.current_hours = float(selected["hours"] or 0)
+            self.pending_seconds = 0
+            self.last_elapsed_seconds = None
 
     def reset_stylus(self, stylus_id):
         with self.lock:
@@ -109,17 +126,15 @@ class StylusHoursTracker:
         with self.lock:
             stylus_id = self.active_stylus_id
             seconds = min(seconds, self.pending_seconds)
-        if stylus_id is None or seconds <= 0:
-            return False
+            if stylus_id is None or seconds <= 0:
+                return False
 
-        updated = self.increment_stylus_hours(stylus_id, seconds / 3600)
-        if not updated:
-            return False
+            updated = self.increment_stylus_hours(stylus_id, seconds / 3600)
+            if not updated:
+                return False
 
-        with self.lock:
-            if self.active_stylus_id == stylus_id:
-                self.pending_seconds = max(0, self.pending_seconds - seconds)
-        return True
+            self.pending_seconds -= seconds
+            return True
 
     def _ensure_active_stylus_locked(self):
         if self.active_stylus_id is not None:

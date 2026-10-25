@@ -235,12 +235,20 @@ def render_index_html():
 
 
 def broadcast_message(message, *, exclude_client=None):
-    messages = [message]
-    messages.extend(stylus_hours_tracker.process_message(message))
+    # Status becomes authoritative under the same lock used by activation.
+    # Keep socket I/O outside this lock.
+    with stylus_hours_tracker.lock:
+        messages = [message]
+        update_runtime_state(message)
+        try:
+            messages.extend(stylus_hours_tracker.process_message(message))
+        except Exception:
+            app.logger.exception("Failed to persist or track stylus usage")
+        for outbound_message in messages[1:]:
+            update_runtime_state(outbound_message)
 
     for outbound_message in messages:
         payload = json.dumps(outbound_message)
-        update_runtime_state(outbound_message)
         for client in list(connected_clients):
             if client is exclude_client:
                 continue
@@ -352,11 +360,12 @@ def get_stylus(id):
     from api.services.db.database import get_all_styli, init_db
 
     init_db()
-    for stylus in get_all_styli():
+    styli = get_all_styli()
+    for stylus in styli:
         if stylus["id"] == str(id):
             return jsonify(stylus)
 
-    stylus = STYLI.get(id)
+    stylus = STYLI.get(id) if not styli else None
     if stylus is None:
         return jsonify({"error": "Not found"}), 404
     return jsonify(stylus.model_dump())
@@ -366,11 +375,33 @@ def get_stylus(id):
 def reset_stylus(id):
     from api.services.db.database import init_db, reset_stylus_hours
 
-    init_db()
-    if not reset_stylus_hours(id):
-        return jsonify({"error": "Not found"}), 404
-    stylus_hours_tracker.reset_stylus(id)
-    runtime_state["stylus_hours"][str(id)] = 0
+    with stylus_hours_tracker.lock:
+        init_db()
+        if not reset_stylus_hours(id):
+            return jsonify({"error": "Not found"}), 404
+        stylus_hours_tracker.reset_stylus(id)
+        runtime_state["stylus_hours"][str(id)] = 0
+    return jsonify({"success": True})
+
+
+@app.post("/styli/<id>/activate")
+def activate_stylus(id):
+    from api.services.db import database
+
+    with stylus_hours_tracker.lock:
+        if runtime_state["status"] == "play":
+            return jsonify({"error": "Stop playback before selecting a stylus"}), 409
+        try:
+            database.init_db()
+            stylus = next((s for s in database.get_all_styli() if s["id"] == str(id)), None)
+            if stylus is None:
+                return jsonify({"error": "Not found"}), 404
+            stylus_hours_tracker.activate_stylus(stylus, database.activate_stylus)
+        except LookupError:
+            return jsonify({"error": "Not found"}), 404
+        except Exception:
+            app.logger.exception("Failed to activate stylus %s", id)
+            return jsonify({"error": "Could not save stylus selection"}), 500
     return jsonify({"success": True})
 
 

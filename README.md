@@ -192,10 +192,19 @@ An NFC reading error appears only before the first successful tag scan. Later re
 
 ### Stylus hours
 
-The local database at `data/now-spinning.db` holds each stylus's total usage.
-Use Python 3's built-in SQLite support to display, set, or reset it from the
-project directory; these commands do not need a running server or the app's
-Python dependencies.
+The local database at `data/now-spinning.db` holds each stylus's total usage
+and one active selection. In Stylus mode, Prev/Next saves the adjacent selection
+with wraparound in ID order and updates both wear bars. Selection survives app
+restart and collection sync; subsequent playback accrues only to that stylus.
+Selection is allowed only while backend playback is stopped, including when a
+different mode or debug hash is displayed. Controls wait for activation to finish;
+an unconfirmed response refreshes the saved selection. Failures replace the stylus
+details with “An error occurred!” in the same layout as “No styli found”. Press
+Prev or Next again to retry; any uncertain saved selection reloads before navigating.
+
+Use Python 3's built-in SQLite support to display, set, or reset totals or delete
+an inactive local stylus from the project directory; these commands do not need
+a running server or the app's Python dependencies.
 
 **Keep the app stopped while using this tool. It has no application lock.**
 Running it during playback can let pending, unsaved usage change the total
@@ -203,7 +212,7 @@ you specify. Follow this procedure on the Pi:
 
 1. Exit the app through its normal **Exit** control so pending usage is saved.
 2. Wait until the app has stopped.
-3. List saved styli to find the ID:
+3. List saved styli to find the ID and active selection:
    ```bash
    ./bin/stylus-hours list
    ```
@@ -228,6 +237,21 @@ does not create a database or missing stylus.
 
 On a new Pi, sync the collection first, then stop the app
 and use `set` to enter the initial total before restarting.
+
+To delete a stylus, first stop playback and use Prev/Next in Stylus mode to
+select a different stylus if necessary. Then exit the app normally, wait until
+it has stopped, and run:
+
+```bash
+./bin/stylus-hours list
+./bin/stylus-hours delete 2
+```
+
+Restart with `./bin/run_kiosk.sh` afterward. Deleting the active stylus is
+rejected; missing IDs and failed deletions report an error to stderr with nonzero
+status. Success is printed only after commit. Deletion is local only: collection
+sync may reimport the stylus with zero hours. Existing selection and other totals
+are preserved.
 
 ### NFC
 
@@ -280,5 +304,4 @@ For my **Dual 721** constants are the next:
 - `TONEARM_DELAY_AUTO = AVG(12171, 13868, 11240, 12434, 11512, 11683, 11896, 11719) = 12065`
 
 ## TODOs:
-1. Stylus prev/next buttons - saving current selected stylus.
-2. Played albums log with duration, and script to get results.
+1. Played albums log with duration, and script to get results.

@@ -743,6 +743,15 @@ body::before {
 }
 
 /* === Bottom Action Bar === */
+.btn:disabled {
+    color: var(--ink-mute);
+    cursor: default;
+}
+
+.btn:disabled:hover {
+    background: var(--ink);
+}
+
 #action-bar {
     display: flex;
     justify-content: center;

@@ -114,7 +114,7 @@ class StylusHoursCliTestCase(unittest.TestCase):
 
     def test_commands_run_without_site_packages(self):
         # -S removes third-party site packages; api.main is not even copied.
-        for arguments in (("list",), ("set", "1", "97.3"), ("reset", "1")):
+        for arguments in (("list",), ("set", "1", "97.3"), ("reset", "1"), ("delete", "2")):
             with self.subTest(arguments=arguments):
                 result = self.command(*arguments, without_site=True)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -129,6 +129,7 @@ class StylusHoursCliTestCase(unittest.TestCase):
     def test_missing_stylus_does_not_change_rows(self):
         before = self.rows()
         for arguments in (("set", "999", "97.3"), ("reset", "999"),
+                          ("delete", "999"), ("delete", "1' OR 1=1 --"),
                           ("set", "1' OR 1=1 --", "97.3")):
             with self.subTest(arguments=arguments):
                 result = self.command(*arguments)
@@ -138,7 +139,7 @@ class StylusHoursCliTestCase(unittest.TestCase):
 
     def test_missing_database_is_never_created(self):
         shutil.rmtree(self.db_path.parent)
-        for arguments in (("list",), ("set", "1", "97.3"), ("reset", "1")):
+        for arguments in (("list",), ("set", "1", "97.3"), ("reset", "1"), ("delete", "2")):
             with self.subTest(arguments=arguments):
                 result = self.command(*arguments)
                 self.assert_failed(result)
@@ -148,7 +149,7 @@ class StylusHoursCliTestCase(unittest.TestCase):
     def test_existing_empty_database_is_not_initialized(self):
         self.db_path.unlink()
         self.db_path.touch()
-        for arguments in (("list",), ("set", "1", "97.3"), ("reset", "1")):
+        for arguments in (("list",), ("set", "1", "97.3"), ("reset", "1"), ("delete", "2")):
             with self.subTest(arguments=arguments):
                 self.assert_failed(self.command(*arguments))
         with sqlite3.connect(self.db_path) as conn:
@@ -156,13 +157,13 @@ class StylusHoursCliTestCase(unittest.TestCase):
 
     def test_bad_arguments_fail_without_changing_rows(self):
         before = self.rows()
-        for arguments in ((), ("unknown",), ("set", "1"), ("reset",), ("list", "extra")):
+        for arguments in ((), ("unknown",), ("set", "1"), ("reset",), ("delete",), ("list", "extra")):
             with self.subTest(arguments=arguments):
                 self.assert_failed(self.command(*arguments))
                 self.assertEqual(self.rows(), before)
 
     def test_help_explains_stopped_app_and_no_application_lock(self):
-        for arguments in (("--help",), ("set", "--help"), ("reset", "--help")):
+        for arguments in (("--help",), ("list", "--help"), ("set", "--help"), ("reset", "--help"), ("delete", "--help")):
             with self.subTest(arguments=arguments):
                 result = self.command(*arguments)
                 self.assertEqual(result.returncode, 0, result.stderr)
@@ -170,6 +171,10 @@ class StylusHoursCliTestCase(unittest.TestCase):
                 self.assertIn("Exit the app normally", text)
                 self.assertIn("wait until it has stopped", text)
                 self.assertIn("no application lock", text)
+                self.assertIn("stylus-hours delete 2", text)
+                self.assertIn("playback is stopped", text)
+                self.assertIn("Deletion is local only", text)
+                self.assertIn("zero hours", text)
 
     def test_write_failure_returns_failure_without_success_output(self):
         before = self.rows()
@@ -202,7 +207,7 @@ class StylusHoursCliTestCase(unittest.TestCase):
             conn.set_authorizer(authorize)
             return conn
 
-        for arguments in (("set", "1", "97.3"), ("reset", "1")):
+        for arguments in (("set", "1", "97.3"), ("reset", "1"), ("delete", "2")):
             with self.subTest(arguments=arguments):
                 stdout, stderr = io.StringIO(), io.StringIO()
                 with patch.object(database, "_get_connection", side_effect=reject_commit):
@@ -212,7 +217,66 @@ class StylusHoursCliTestCase(unittest.TestCase):
                 self.assertEqual(stdout.getvalue(), "")
                 self.assertIn("not authorized", stderr.getvalue())
                 self.assertEqual(self.rows(), before)
-        self.assertEqual(len(attempted_commits), 2)
+        self.assertEqual(len(attempted_commits), 3)
+
+    def test_delete_inactive_entry_preserves_other_rows_and_reports_after_commit(self):
+        before = self.rows()
+        result = self.command("delete", "2")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, "Deleted stylus 2\n")
+        self.assertEqual(result.stderr, "")
+        self.assertEqual(self.rows(), [before[0]])
+        self.assertFalse(database.delete_stylus("2"))
+
+    def test_delete_active_stylus_raises_value_error_and_cli_fails(self):
+        before = self.rows()
+        with self.assertRaisesRegex(ValueError, "is active"):
+            database.delete_stylus("1")
+        result = self.command("delete", "1")
+        self.assert_failed(result)
+        self.assertIn("is active", result.stderr)
+        self.assertEqual(self.rows(), before)
+
+    def test_delete_write_failure_rolls_back_without_success(self):
+        before = self.rows()
+        with sqlite3.connect(self.db_path) as conn:
+            conn.executescript("""
+                CREATE TRIGGER reject_delete BEFORE DELETE ON stylus
+                BEGIN SELECT RAISE(ABORT, 'delete refused'); END;
+            """)
+        result = self.command("delete", "2")
+        self.assert_failed(result)
+        self.assertIn("delete refused", result.stderr)
+        self.assertEqual(self.rows(), before)
+
+    def test_delete_checks_selection_and_mutates_in_one_existing_database_transaction(self):
+        statements = []
+        original_connection = database._get_connection
+
+        def trace_connection(**kwargs):
+            self.assertEqual(kwargs, {"existing_only": True})
+            conn = original_connection(**kwargs)
+            conn.set_trace_callback(statements.append)
+            return conn
+
+        with patch.object(database, "_get_connection", side_effect=trace_connection) as connect:
+            self.assertTrue(database.delete_stylus("2"))
+        connect.assert_called_once()
+        self.assertEqual(statements[0], "BEGIN IMMEDIATE")
+        self.assertEqual(statements[-1], "COMMIT")
+        self.assertTrue(any("active = 1" in sql for sql in statements[1:-1]))
+        self.assertTrue(any(sql.startswith("DELETE FROM stylus") for sql in statements[1:-1]))
+
+    def test_delete_protects_effective_legacy_selection_without_normalizing_on_rejection(self):
+        for flags in ((0, 0), (1, 1), (None, 0)):
+            with self.subTest(flags=flags):
+                with sqlite3.connect(self.db_path) as conn:
+                    conn.execute("UPDATE stylus SET active = ? WHERE id = '1'", (flags[0],))
+                    conn.execute("UPDATE stylus SET active = ? WHERE id = '2'", (flags[1],))
+                before = self.rows()
+                with self.assertRaises(ValueError):
+                    database.delete_stylus("1")
+                self.assertEqual(self.rows(), before)
 
     def test_shared_set_and_reset_report_results_and_missing_rows(self):
         self.assertEqual(database.set_stylus_hours("1", 97.3), (102.4, 97.3))

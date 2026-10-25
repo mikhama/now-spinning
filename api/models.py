@@ -29,3 +29,4 @@ class Stylus(BaseModel):
     hours: float
     capacity_min: float
     capacity_max: float
+    active: bool

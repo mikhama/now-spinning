@@ -206,6 +206,7 @@ class LinkingApiTestCase(unittest.TestCase):
         database.increment_stylus_hours("2", 0.25)
         database.set_stylus_hours("3", 97.3)
         database.reset_stylus_hours("4")
+        self.assertEqual(self.client.post("/styli/3/activate").status_code, 200)
 
         remote = [
             {"id": str(number), "name": "Remote stylus", "distance_hours": 999}
@@ -214,11 +215,13 @@ class LinkingApiTestCase(unittest.TestCase):
         self.sync_local_collection(remote)
         expected = {"1": 102.4, "2": 25.75, "3": 97.3, "4": 0, "5": 0, "6": 0}
         self.assertEqual({s["id"]: s["hours"] for s in database.get_all_styli()}, expected)
+        self.assertEqual([s["id"] for s in database.get_all_styli() if s["active"]], ["3"])
 
         for stylus in remote:
             stylus.pop("distance_hours", None)
         self.sync_local_collection(remote)
         self.assertEqual({s["id"]: s["hours"] for s in database.get_all_styli()}, expected)
+        self.assertEqual([s["id"] for s in database.get_all_styli() if s["active"]], ["3"])
 
     def test_fresh_app_process_loads_offline_total_after_sync(self):
         self.insert_stylus("1", distance_hours=102.4)

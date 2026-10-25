@@ -18,6 +18,10 @@ var state = {
     reLinkRecordIndex: 0,
     stylusIndex: 0,
     stylusHours: {},
+    playbackStatus: null,
+    stylusActivationPending: false,
+    stylusSelectionUnconfirmed: false,
+    stylusError: false,
     temperature: null,
     linkError: false,
     pendingLinkRecordId: null,
@@ -34,6 +38,7 @@ var lastRendered = {
 };
 
 var lastReportedBackendMode = null;
+var stylusFetchVersion = 0;
 
 var screensaverPlayStartedAt = null;
 var screensaverLastInteractionAt = null;
@@ -344,6 +349,18 @@ function isPendingLinkFor(record, mode) {
 function getCurrentStylus() {
     if (state.styli.length === 0) return null;
     return state.styli[state.stylusIndex] || null;
+}
+
+function getActiveStylus() {
+    return state.styli.find(function (stylus) { return stylus.active; }) || null;
+}
+
+function selectSavedStylus(id) {
+    var index = state.styli.findIndex(function (stylus) { return stylus.id === id; });
+    if (index < 0) return false;
+    state.styli.forEach(function (stylus) { stylus.active = stylus.id === id; });
+    state.stylusIndex = index;
+    return true;
 }
 
 function coverImageUrl(record) {
@@ -1050,7 +1067,7 @@ function getActiveActionGroupId() {
         case "re-link":
             return getLinkedRecords().length > 0 ? "actions-re-link" : "actions-empty";
         case "stylus":
-            return state.styli.length > 0 ? "actions-stylus" : "actions-empty";
+            return state.styli.length > 0 || state.stylusError ? "actions-stylus" : "actions-empty";
         case "sync":
             return "actions-sync";
         default:
@@ -1059,7 +1076,7 @@ function getActiveActionGroupId() {
 }
 
 function getTopBarInputs() {
-    var topStylus = state.styli.length > 0 ? state.styli[0] : null;
+    var topStylus = getActiveStylus();
     var topHours = topStylus ? getStylusHours(topStylus) : null;
 
     return {
@@ -1150,6 +1167,7 @@ function getActiveSectionInputs() {
                 stylusCapacityMax: stylus ? stylus.capacity_max : null,
                 stylusCapacityMin: stylus ? stylus.capacity_min : null,
                 stylusCount: state.styli.length,
+                stylusError: state.stylusError,
             };
         case "sync":
             return {
@@ -1205,7 +1223,7 @@ function renderTopBar() {
     var compactBar = document.getElementById("stylus-bar-compact");
     var compactFill = document.getElementById("stylus-bar-compact-fill");
     var tempDisplay = document.getElementById("temperature-display");
-    var topStylus = state.styli.length > 0 ? state.styli[0] : null;
+    var topStylus = getActiveStylus();
 
     document.getElementById("mode-label").textContent = getModeLabel();
 
@@ -1303,6 +1321,7 @@ function render(options) {
         }
     }
 
+    renderStylusControls();
     renderScreensaver();
 }
 
@@ -1460,8 +1479,9 @@ function renderStylus() {
     var barFill = document.getElementById("stylus-bar-full-fill");
     var bar = document.getElementById("stylus-bar-full");
     var empty = document.getElementById("stylus-empty");
+    var error = document.getElementById("stylus-error");
 
-    if (stylus) {
+    if (stylus && !state.stylusError) {
         var hours = getStylusHours(stylus);
         var ratio = getBarFillRatio(hours, stylus.capacity_max);
         var color = getBarColor(hours, stylus.capacity_min);
@@ -1478,8 +1498,20 @@ function renderStylus() {
         nameEl.style.display = "none";
         hoursEl.style.display = "none";
         bar.style.display = "none";
-        empty.style.display = "";
+        empty.style.display = state.stylusError ? "none" : "";
     }
+    error.style.display = state.stylusError ? "" : "none";
+}
+
+function renderStylusControls() {
+    var pending = state.stylusActivationPending;
+    var uncertain = state.stylusSelectionUnconfirmed;
+    var disableNavigation = pending || state.playbackStatus === "play" || (!state.stylusError && state.styli.length < 2);
+    document.getElementById("btn-prev-stylus").disabled = disableNavigation;
+    document.getElementById("btn-next-stylus").disabled = disableNavigation;
+    var reset = document.getElementById("btn-reset-stylus");
+    reset.disabled = pending || uncertain || state.stylusError || !getCurrentStylus();
+    reset.style.visibility = state.stylusError ? "hidden" : "";
 }
 
 function renderSync() {
@@ -1544,10 +1576,77 @@ function fetchRecords() {
 }
 
 function fetchStyli() {
-    return fetch("/styli")
-        .then(function (res) { return res.json(); })
-        .then(function (data) { state.styli = data; })
-        .catch(function (e) { console.error("Failed to fetch styli:", e); });
+    var version = ++stylusFetchVersion;
+    return fetch("/styli", { cache: "no-store" })
+        .then(function (res) {
+            if (!res.ok) throw new Error("Could not load saved selection");
+            return res.json();
+        })
+        .then(function (data) {
+            if (version !== stylusFetchVersion) return false;
+            if (!Array.isArray(data) || (data.length && data.filter(function (s) { return s.active === true; }).length !== 1)) {
+                throw new Error("Invalid saved selection");
+            }
+            state.styli = data.sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+            var active = getActiveStylus();
+            state.stylusIndex = active ? state.styli.indexOf(active) : 0;
+            state.stylusSelectionUnconfirmed = false;
+            return true;
+        })
+        .catch(function (e) {
+            if (version !== stylusFetchVersion) return false;
+            console.error("Failed to fetch styli:", e);
+            state.stylusSelectionUnconfirmed = true;
+            state.stylusError = true;
+            return false;
+        });
+}
+
+function activateAdjacentStylus(offset) {
+    if (state.stylusActivationPending || state.playbackStatus === "play") return;
+    if (!state.stylusSelectionUnconfirmed && !state.stylusError && state.styli.length < 2) return;
+    ++stylusFetchVersion; // Invalidate older selection reads.
+    state.stylusActivationPending = true;
+    render();
+
+    function activate() {
+        // Recovery may finish after playback starts or the collection changes.
+        if (state.playbackStatus === "play" || state.styli.length < 2) {
+            state.stylusError = false;
+            return;
+        }
+        var index = (state.stylusIndex + offset + state.styli.length) % state.styli.length;
+        var targetId = state.styli[index].id;
+        return fetch("/styli/" + encodeURIComponent(targetId) + "/activate", { method: "POST" })
+            .then(function (res) {
+                if (!res.ok) {
+                    state.stylusError = true;
+                    return;
+                }
+                return res.json().then(function (data) {
+                    if (!data || data.success !== true) throw new Error("Unconfirmed selection");
+                    ++stylusFetchVersion;
+                    if (!selectSavedStylus(targetId)) throw new Error("Selection needs refreshing");
+                    state.stylusError = false;
+                });
+            })
+            .catch(function (e) {
+                console.error("Failed to confirm stylus selection:", e);
+                state.stylusSelectionUnconfirmed = true;
+                state.stylusError = true;
+                return fetchStyli();
+            });
+    }
+
+    var request = state.stylusSelectionUnconfirmed
+        ? fetchStyli().then(function (loaded) {
+            if (loaded) return activate();
+        })
+        : activate();
+    return Promise.resolve(request).then(function () {
+        state.stylusActivationPending = false;
+        render();
+    });
 }
 
 function linkRecord() {
@@ -1573,6 +1672,7 @@ function reLinkRecord() {
 }
 
 function resetStylus() {
+    if (state.stylusActivationPending || state.stylusSelectionUnconfirmed || state.stylusError) return;
     var stylus = getCurrentStylus();
     if (!stylus) return;
 
@@ -1643,15 +1743,11 @@ function nextReLinkRecord() {
 }
 
 function prevStylus() {
-    if (state.styli.length === 0) return;
-    state.stylusIndex = (state.stylusIndex - 1 + state.styli.length) % state.styli.length;
-    render();
+    return activateAdjacentStylus(-1);
 }
 
 function nextStylus() {
-    if (state.styli.length === 0) return;
-    state.stylusIndex = (state.stylusIndex + 1) % state.styli.length;
-    render();
+    return activateAdjacentStylus(1);
 }
 
 function prevSong() {
@@ -1765,6 +1861,8 @@ function connectWebSocket() {
                 });
                 break;
             case "status":
+                if (msgData.status) state.playbackStatus = msgData.status;
+                renderStylusControls();
                 if (!location.hash) {
                     if (msgData.status === "play") {
                         var wasPlaying = state.mode === "play";

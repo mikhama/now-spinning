@@ -46,9 +46,27 @@ def init_db():
                 updated_at TEXT
             );
         """)
-        conn.commit()
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            _normalize_active_stylus(conn)
     finally:
         conn.close()
+
+
+def _selected_stylus_id(conn):
+    row = conn.execute(
+        "SELECT id FROM stylus ORDER BY CASE WHEN active = 1 THEN 0 ELSE 1 END, id LIMIT 1"
+    ).fetchone()
+    return row[0] if row else None
+
+
+def _normalize_active_stylus(conn):
+    selected_id = _selected_stylus_id(conn)
+    if selected_id is not None:
+        conn.execute(
+            "UPDATE stylus SET active = (id = ?) WHERE active IS NOT (id = ?)",
+            (selected_id, selected_id),
+        )
 
 
 def get_last_sync_date():
@@ -63,15 +81,17 @@ def get_last_sync_date():
 def upsert_styli(styli_list):
     conn = _get_connection()
     try:
-        for s in styli_list:
-            cap_min = s.get("capacity_min_hours") or s.get("capacity_min_hours:") or s.get("capacity_min", 0)
-            cap_max = s.get("capacity_max_hours") or s.get("capacity_max_hours:") or s.get("capacity_max", 0)
-            active = s.get("active", 1)
-            conn.execute(
-                "INSERT OR IGNORE INTO stylus (id, name, distance_hours, capacity_min_hours, capacity_max_hours, active) VALUES (?, ?, ?, ?, ?, ?)",
-                (s["id"], s["name"], 0, cap_min, cap_max, active),
-            )
-        conn.commit()
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            _normalize_active_stylus(conn)
+            for s in styli_list:
+                cap_min = s.get("capacity_min_hours") or s.get("capacity_min_hours:") or s.get("capacity_min", 0)
+                cap_max = s.get("capacity_max_hours") or s.get("capacity_max_hours:") or s.get("capacity_max", 0)
+                conn.execute(
+                    "INSERT OR IGNORE INTO stylus (id, name, distance_hours, capacity_min_hours, capacity_max_hours, active) VALUES (?, ?, ?, ?, ?, ?)",
+                    (s["id"], s["name"], 0, cap_min, cap_max, 0),
+                )
+            _normalize_active_stylus(conn)
     finally:
         conn.close()
 
@@ -128,12 +148,13 @@ def get_all_styli(*, existing_only=False):
                 name,
                 distance_hours AS hours,
                 capacity_min_hours AS capacity_min,
-                capacity_max_hours AS capacity_max
+                capacity_max_hours AS capacity_max,
+                active
             FROM stylus
-            ORDER BY active DESC, id
+            ORDER BY id
             """
         ).fetchall()
-        return [dict(row) for row in rows]
+        return [dict(row, active=bool(row["active"])) for row in rows]
     finally:
         conn.close()
 
@@ -165,6 +186,46 @@ def increment_stylus_hours(stylus_id, delta_hours):
         )
         conn.commit()
         return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+def activate_stylus(stylus_id):
+    """Commit one selection and return its saved hours, or None for a missing ID."""
+    conn = _get_connection(existing_only=True)
+    try:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT id, distance_hours FROM stylus WHERE id = ?", (str(stylus_id),)
+            ).fetchone()
+            if row is None:
+                return None
+            conn.execute(
+                "UPDATE stylus SET active = (id = ?) WHERE active IS NOT (id = ?)",
+                (str(stylus_id), str(stylus_id)),
+            )
+        return {"id": row[0], "hours": row[1]}
+    finally:
+        conn.close()
+
+
+def delete_stylus(stylus_id):
+    """Delete an inactive local row, checking selection within the write transaction."""
+    conn = _get_connection(existing_only=True)
+    try:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT id FROM stylus WHERE id = ?", (str(stylus_id),)
+            ).fetchone()
+            if row is None:
+                return False
+            if row[0] == _selected_stylus_id(conn):
+                raise ValueError(f"Stylus {stylus_id} is active; select another stylus in the stopped player first")
+            conn.execute("DELETE FROM stylus WHERE id = ?", (str(stylus_id),))
+            _normalize_active_stylus(conn)
+        return True
     finally:
         conn.close()
 
