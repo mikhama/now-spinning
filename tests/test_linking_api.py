@@ -24,6 +24,7 @@ class LinkingApiTestCase(unittest.TestCase):
         self.original_temperature_publisher_started = api_main.temperature_publisher_started
         self.original_playback_status_publisher_started = api_main.playback_status_publisher_started
         self.original_nfc_coordinator_started = api_main.nfc_coordinator_started
+        self.original_nfc_coordinator_thread = api_main.nfc_coordinator_thread
         self.original_stylus_hours_tracker = api_main.stylus_hours_tracker
         self.original_shutdown_hooks_installed = api_main.shutdown_hooks_installed
         self.original_previous_signal_handlers = dict(api_main.previous_signal_handlers)
@@ -31,6 +32,9 @@ class LinkingApiTestCase(unittest.TestCase):
         database.init_db()
         api_main.stylus_hours_tracker = api_main.create_stylus_hours_tracker()
         self.client = app.test_client()
+        self.cleanup_patch = patch("api.main.shutdown_application")
+        self.cleanup_patch.start()
+        self.addCleanup(self.cleanup_patch.stop)
 
     def tearDown(self):
         database.DB_PATH = self.original_db_path
@@ -39,6 +43,7 @@ class LinkingApiTestCase(unittest.TestCase):
         api_main.temperature_publisher_started = self.original_temperature_publisher_started
         api_main.playback_status_publisher_started = self.original_playback_status_publisher_started
         api_main.nfc_coordinator_started = self.original_nfc_coordinator_started
+        api_main.nfc_coordinator_thread = self.original_nfc_coordinator_thread
         api_main.stylus_hours_tracker = self.original_stylus_hours_tracker
         api_main.shutdown_hooks_installed = self.original_shutdown_hooks_installed
         api_main.previous_signal_handlers = self.original_previous_signal_handlers
@@ -708,7 +713,7 @@ print(json.dumps({
                     self.assertTrue(api_main.install_shutdown_hooks())
                     self.assertFalse(api_main.install_shutdown_hooks())
 
-        register.assert_called_once_with(api_main.flush_pending_stylus_usage)
+        register.assert_called_once_with(api_main.shutdown_application)
         self.assertEqual(getsignal.call_count, 2)
         self.assertEqual(signal_func.call_count, 2)
 

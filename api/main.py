@@ -13,7 +13,7 @@ from flask import Flask, Response, jsonify, request
 from flask_sock import Sock
 
 from api.mock_data import RECORDS, STYLI
-from api.nfc_coordinator import NfcCoordinator
+from api.nfc_coordinator import NfcCoordinator, NfcShuttingDown
 from api.playback_status import run_playback_status_publisher, verify_rpm_sensor_ready
 from api.stylus_hours import StylusHoursTracker
 from lib.nfc import initialize_backend as initialize_nfc_backend
@@ -31,7 +31,13 @@ temperature_publisher_lock = threading.Lock()
 playback_status_publisher_started = False
 playback_status_publisher_lock = threading.Lock()
 nfc_coordinator_started = False
-nfc_coordinator_lock = threading.Lock()
+nfc_coordinator_thread = None
+nfc_coordinator_lock = threading.RLock()
+NFC_SHUTDOWN_TIMEOUT_SECONDS = 5
+shutdown_started = threading.Event()
+shutdown_cleanup_lock = threading.Lock()
+shutdown_result = False
+shutdown_signal_in_progress = False
 shutdown_hooks_installed = False
 previous_signal_handlers = {}
 
@@ -259,17 +265,22 @@ nfc_coordinator = NfcCoordinator(
 
 
 def start_nfc_coordinator():
-    global nfc_coordinator_started
+    global nfc_coordinator_started, nfc_coordinator_thread
     if is_boardless_mode():
         return False
 
     with nfc_coordinator_lock:
-        if nfc_coordinator_started:
+        if nfc_coordinator_started or shutdown_started.is_set() or nfc_coordinator.shutting_down:
             return False
+        thread = threading.Thread(target=nfc_coordinator.run_forever, daemon=True, name="nfc-worker")
+        nfc_coordinator_thread = thread
+        try:
+            thread.start()
+        except Exception:
+            nfc_coordinator_thread = None
+            raise
         nfc_coordinator_started = True
 
-    thread = threading.Thread(target=nfc_coordinator.run_forever, daemon=True)
-    thread.start()
     return True
 
 
@@ -475,8 +486,58 @@ def flush_pending_stylus_usage():
         raise RuntimeError("Pending stylus usage could not be persisted")
 
 
+def shutdown_application():
+    global nfc_coordinator_thread, shutdown_result
+    # A repeated signal or caller must not start another cleanup or wait.
+    if not shutdown_cleanup_lock.acquire(blocking=False):
+        return False
+    try:
+        if shutdown_started.is_set():
+            return shutdown_result
+        shutdown_started.set()
+        deadline = time.monotonic() + NFC_SHUTDOWN_TIMEOUT_SECONDS
+        app.logger.info("Application shutdown started (NFC wait limit=%ss)", NFC_SHUTDOWN_TIMEOUT_SECONDS)
+        nfc_clean = False
+        try:
+            with nfc_coordinator_lock:
+                nfc_coordinator.stop()
+                if nfc_coordinator_thread is None:
+                    # A stopped worker closes an existing backend after startup failure.
+                    nfc_coordinator_thread = threading.Thread(
+                        target=nfc_coordinator.run_forever, daemon=True, name="nfc-cleanup",
+                    )
+                    nfc_coordinator_thread.start()
+                thread = nfc_coordinator_thread
+            thread.join(max(0, deadline - time.monotonic()))
+            if thread.is_alive():
+                app.logger.error("NFC shutdown incomplete after %ss; worker remains active; continue exit",
+                                 NFC_SHUTDOWN_TIMEOUT_SECONDS)
+            else:
+                nfc_clean = nfc_coordinator.cleanup_succeeded is True
+                app.logger.info("NFC shutdown finished (cleanup_succeeded=%s)", nfc_clean)
+        except Exception:
+            app.logger.exception("NFC shutdown incomplete; continue exit")
+
+        persisted = False
+        try:
+            flush_pending_stylus_usage()
+            persisted = True
+        except Exception:
+            app.logger.exception("Failed to persist stylus usage during application cleanup")
+        shutdown_result = nfc_clean and persisted
+        app.logger.info("Application cleanup finished (nfc_clean=%s, stylus_saved=%s)", nfc_clean, persisted)
+        return shutdown_result
+    finally:
+        shutdown_cleanup_lock.release()
+
+
 def shutdown_signal_handler(signum, frame):
-    flush_pending_stylus_usage()
+    global shutdown_signal_in_progress
+    if shutdown_signal_in_progress or shutdown_cleanup_lock.locked():
+        return
+    shutdown_signal_in_progress = True
+    app.logger.info("Termination signal received (signal=%s)", signum)
+    shutdown_application()
     previous_handler = previous_signal_handlers.get(signum)
     if callable(previous_handler):
         previous_handler(signum, frame)
@@ -491,7 +552,7 @@ def install_shutdown_hooks():
     if shutdown_hooks_installed:
         return False
 
-    atexit.register(flush_pending_stylus_usage)
+    atexit.register(shutdown_application)
     for signum in (signal.SIGTERM, signal.SIGINT):
         previous_signal_handlers[signum] = signal.getsignal(signum)
         signal.signal(signum, shutdown_signal_handler)
@@ -511,12 +572,15 @@ def start_api_server(
     if run_flask is None:
         run_flask = lambda: app.run(host="0.0.0.0", port=5000)
 
-    install_hooks()
-    verify_sensors()
-    start_temperature()
-    start_playback()
-    start_nfc()
-    return run_flask()
+    try:
+        install_hooks()
+        verify_sensors()
+        start_temperature()
+        start_playback()
+        start_nfc()
+        return run_flask()
+    finally:
+        shutdown_application()
 
 
 # ---------------------------------------------------------------------------
@@ -546,6 +610,8 @@ def post_event():
 
 @app.post("/nfc/mode")
 def post_nfc_mode():
+    if shutdown_started.is_set() or nfc_coordinator.shutting_down:
+        return jsonify({"error": "NFC is shutting down"}), 503
     data = request.get_json(silent=True)
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
@@ -554,12 +620,17 @@ def post_nfc_mode():
     if not mode:
         return jsonify({"error": "Missing mode"}), 400
 
-    nfc_coordinator.set_mode(mode)
+    try:
+        nfc_coordinator.set_mode(mode)
+    except NfcShuttingDown as error:
+        return jsonify({"error": str(error)}), 503
     return jsonify({"success": True})
 
 
 @app.post("/nfc/write")
 def post_nfc_write():
+    if shutdown_started.is_set() or nfc_coordinator.shutting_down:
+        return jsonify({"error": "NFC is shutting down"}), 503
     data = request.get_json(silent=True)
     if data is None:
         return jsonify({"error": "Invalid JSON"}), 400
@@ -568,7 +639,10 @@ def post_nfc_write():
     if not record_id:
         return jsonify({"error": "Missing record_id"}), 400
 
-    nfc_coordinator.request_write(record_id, mode=data.get("mode"))
+    try:
+        nfc_coordinator.request_write(record_id, mode=data.get("mode"))
+    except NfcShuttingDown as error:
+        return jsonify({"error": str(error)}), 503
     return jsonify({"success": True})
 
 

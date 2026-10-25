@@ -545,7 +545,7 @@ class DriverTestCase(unittest.TestCase):
     def backend_coordinator(self, driver):
         backend = Pn532Backend.__new__(Pn532Backend)
         backend._nfc = driver
-        coordinator = NfcCoordinator(read_nfc=backend.read, write_nfc=backend.write)
+        coordinator = NfcCoordinator(read_nfc=backend.read, write_nfc=backend.write, close_nfc=backend.close)
         return coordinator
 
     def test_inactive_modes_stay_off_after_standby_and_during_idle(self):
@@ -636,7 +636,7 @@ class DriverTestCase(unittest.TestCase):
                     coordinator.tick()
                     self.assertEqual(len(wire.commands), count)
 
-    def test_worker_sleeps_half_second_with_rf_off_after_each_outcome(self):
+    def test_worker_waits_half_second_with_rf_off_after_each_outcome(self):
         for kind in ("uart", "i2c"):
             for outcome in ("absence", "success", "failure", "write"):
                 with self.subTest(kind=kind, outcome=outcome):
@@ -655,16 +655,17 @@ class DriverTestCase(unittest.TestCase):
                         return [(0, driver._ACK), (0.01, reply(cmd, payload))]
                     wire.handler = handler
                     pauses = []
-                    def sleep(seconds):
+                    def wait(seconds):
                         self.assertFalse(wire.rf)
                         pauses.append(seconds)
                         coordinator.stop()
-                    coordinator.sleep = sleep
                     coordinator.set_mode("standby")
                     if outcome == "write":
                         coordinator.request_write("abc-123", mode="link")
-                    coordinator.run_forever()
+                    with patch.object(coordinator._stop_event, "wait", side_effect=wait):
+                        coordinator.run_forever()
                     self.assertEqual(pauses, [0.5])
+                    self.assertTrue(wire.closed)
 
 
 if __name__ == "__main__":

@@ -3,6 +3,9 @@ import unittest
 import lib.nfc as nfc_module
 from lib.nfc import BoardlessBackend, NfcError, NfcNoCard, Pn532Backend, nfc_read, nfc_read_once, nfc_write
 from unittest.mock import patch
+from unittest.mock import Mock
+
+from drv.pn532 import PN532Commands
 
 
 class FakeBackend:
@@ -286,6 +289,43 @@ class NfcLibraryTestCase(unittest.TestCase):
             self.assertEqual(backend.read(), "abc-123")
             backend.write("abc-123")
             output.assert_called_once_with('[BOARDLESS] Write: "abc-123"')
+
+    def test_cleanup_never_initializes_a_backend(self):
+        nfc_module._backend = None
+        with patch.object(nfc_module, "_get_backend") as initialize:
+            nfc_module.close_backend()
+            nfc_module.close_backend()
+        initialize.assert_not_called()
+
+    def test_close_is_safe_to_repeat_after_success_or_rf_failure(self):
+        for failure in (None, OSError(5, "I2C command write failed")):
+            with self.subTest(failure=failure):
+                driver = PN532Commands()
+                driver.set_rf_field = Mock(return_value=True, side_effect=failure)
+                driver._close_connection = Mock()
+                backend = make_backend(driver)
+                nfc_module._backend = backend
+                if failure:
+                    with self.assertRaisesRegex(NfcError, "RF-off failed") as raised:
+                        nfc_module.close_backend()
+                    self.assertIs(raised.exception.__cause__, failure)
+                else:
+                    nfc_module.close_backend()
+                nfc_module.close_backend()
+                backend.close()
+                driver.set_rf_field.assert_called_once_with(False)
+                driver._close_connection.assert_called_once_with()
+                self.assertIsNone(nfc_module._backend)
+
+    def test_boardless_close_does_not_prompt_or_initialize_hardware(self):
+        with patch("builtins.input") as prompt, patch.object(nfc_module, "Pn532Backend") as hardware:
+            with patch.dict("os.environ", {"BOARDLESS_MODE": "true"}):
+                nfc_module._backend = None
+                self.assertIsInstance(nfc_module.initialize_backend(), BoardlessBackend)
+                nfc_module.close_backend()
+                nfc_module.close_backend()
+        prompt.assert_not_called()
+        hardware.assert_not_called()
 
 
 if __name__ == "__main__":

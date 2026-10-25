@@ -22,6 +22,11 @@ class Pn532Backend:
             conn = 6                # I2C bus number
         self._nfc = PN532(conn)
 
+    def close(self):
+        reader, self._nfc = self._nfc, None
+        if reader is not None:
+            reader.close()
+
     @contextmanager
     def _rf_operation(self):
         try:
@@ -146,6 +151,9 @@ class Pn532Backend:
 
 class BoardlessBackend:
 
+    def close(self):
+        pass
+
     def read(self, timeout: float = 30) -> str:
         text = input("[BOARDLESS] Enter simulated card text (empty to cancel): ").strip()
         if not text:
@@ -176,6 +184,13 @@ def _get_backend():
 
 def initialize_backend():
     return _get_backend()
+
+
+def close_backend():
+    global _backend
+    backend, _backend = _backend, None
+    if backend is not None:
+        backend.close()
 
 
 def nfc_read() -> str:

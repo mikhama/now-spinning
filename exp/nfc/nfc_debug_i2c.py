@@ -30,8 +30,8 @@ def main():
     try:
         bus.i2c_rdwr(i2c_msg.read(PN532_ADDR, 1))
         print(f"[2] Device ACKed at {PN532_ADDR:#04x}  OK")
-    except OSError:
-        print(f"[2] No ACK at {PN532_ADDR:#04x}. Check wiring / DIP switch (I2C = 1 0).")
+    except OSError as error:
+        print(f"[2] I2C read failed at {PN532_ADDR:#04x}: {error} (errno={error.errno})")
         print(f"    Try:  i2cdetect -y {I2C_BUS}   (expect '24')")
         bus.close()
         return
