@@ -28,6 +28,9 @@ class StylusSelectionTestCase(unittest.TestCase):
         tracker_patch = patch.object(api_main, "stylus_hours_tracker", self.tracker)
         tracker_patch.start()
         self.addCleanup(tracker_patch.stop)
+        history_patch = patch.object(api_main, "session_history_tracker", api_main.create_session_history_tracker())
+        history_patch.start()
+        self.addCleanup(history_patch.stop)
         previous_runtime = deepcopy(api_main.runtime_state)
         self.addCleanup(lambda: (api_main.runtime_state.clear(), api_main.runtime_state.update(previous_runtime)))
         api_main.runtime_state.update(status="stop", status_time=None, stylus_hours={})
@@ -310,11 +313,11 @@ print(json.dumps({'event': tracker.current_event(), 'styli': app.test_client().g
         in_play, allow_play, activation_attempted = threading.Event(), threading.Event(), threading.Event()
         original_process = self.tracker.process_message
 
-        def paused_play(message):
+        def paused_play(message, **kwargs):
             in_play.set()
             if not allow_play.wait(5):
                 raise TimeoutError("Test did not release playback")
-            return original_process(message)
+            return original_process(message, **kwargs)
 
         def activate():
             activation_attempted.set()

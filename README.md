@@ -38,7 +38,7 @@ screen. It offers **Cancel**, **Exit**, and **Shutdown**.
 Exit closes the kiosk runner, API, and Chromium; Shutdown requests an orderly
 Raspberry Pi poweroff. Selecting either action closes the dialog immediately,
 without showing preview, progress, or success messages. Pending
-stylus hours are saved first; if saving fails, the action is aborted. Cancel,
+playback history and stylus hours are saved first; if either save fails, the action is aborted. Cancel,
 Escape, and touching the backdrop dismiss the idle dialog. The playback
 screensaver pauses while it is open and waits a fresh ten seconds after dismissal.
 
@@ -190,6 +190,51 @@ An NFC reading error appears only before the first successful tag scan. Later re
 
 ## Utils
 
+### Playback history
+
+Playback history is saved beside stylus totals in `data/now-spinning.db`. The
+updated app adds `sessions_log` during normal initialization without deleting
+existing data. History counts playback-counter seconds for identified records in
+the local collection, even without a stylus. Empty or unresolved record IDs are
+skipped. Collection sync preserves history; playback before this feature cannot
+be reconstructed.
+
+From the project directory, run the Python 3 standard-library console tool:
+
+```bash
+./bin/sessions-history
+```
+
+The report may run while the app runs and shows **committed history only**.
+History saves at periodic checkpoints (including every 600 counted seconds
+without a stylus), playback stop, stopped stylus changes, Exit, Shut Down, and
+application cleanup. Unsaved playback can be lost on abrupt power loss.
+
+Aligned columns show **Started at**, **Duration**, **Artist**, **Album**, and
+**Album ID**. Starts use local time with a UTC offset; durations use `HH:MM:SS`
+and can exceed 24 hours. Album ID means the existing local `record.id`.
+Consecutive entries for the same album combine regardless of the gap, using the
+first start and summing only recorded playback seconds. A → B → A remains three
+rows, including when both albums have the same artist. Unknown playback creates
+no separator. Metadata comes from the current records table; if metadata later
+disappears, the history and ID remain, with `Unknown` artist/album labels.
+
+To clear history, **exit the app normally, wait until it has stopped**, then run:
+
+```bash
+./bin/sessions-history clear
+```
+
+Enter exactly `yes I hereby confirm` at the prompt. Every other response, EOF,
+or interruption cancels deletion. The command deletes only `sessions_log` rows
+in one transaction and reports success after commit. It has no application lock;
+restart the app afterward with `./bin/run_kiosk.sh`.
+
+Neither command creates a missing database or upgrades its schema. Start the
+updated app first if the database or history table is missing. Errors produce a
+nonzero status. Use `./bin/sessions-history --help` or
+`./bin/sessions-history clear --help` for command help.
+
 ### Stylus hours
 
 The local database at `data/now-spinning.db` holds each stylus's total usage
@@ -302,6 +347,3 @@ after stopped detection triggers.
 
 For my **Dual 721** constants are the next:
 - `TONEARM_DELAY_AUTO = AVG(12171, 13868, 11240, 12434, 11512, 11683, 11896, 11719) = 12065`
-
-## TODOs:
-1. Played albums log with duration, and script to get results.

@@ -33,7 +33,7 @@ class StylusHoursTracker:
         self.last_elapsed_seconds = None
         self.pending_seconds = 0
 
-    def process_message(self, message):
+    def process_message(self, message, *, persist=True):
         if message.get("event") != "status":
             return []
 
@@ -41,15 +41,16 @@ class StylusHoursTracker:
         status = data.get("status")
         with self.lock:
             if status == "play":
-                return self.process_play(data.get("time"))
+                return self.process_play(data.get("time"), persist=persist)
             if status == "stop":
                 try:
-                    self.flush_pending()
+                    if persist:
+                        self.flush_pending()
                 finally:
                     self.last_elapsed_seconds = None
         return []
 
-    def process_play(self, time_value):
+    def process_play(self, time_value, *, persist=True):
         elapsed_seconds = parse_elapsed_seconds(time_value)
         if elapsed_seconds is None:
             return []
@@ -78,14 +79,16 @@ class StylusHoursTracker:
             self.current_hours += delta_seconds / 3600
             event = self._stylus_hours_event_locked()
 
-        self.flush_periodic()
+        if persist:
+            self.flush_periodic()
         return [event]
 
     def flush_periodic(self):
         with self.lock:
             flush_seconds = (self.pending_seconds // self.flush_interval_seconds) * self.flush_interval_seconds
             if flush_seconds > 0:
-                self._flush_seconds(flush_seconds)
+                return self._flush_seconds(flush_seconds)
+            return True
 
     def flush_pending(self):
         with self.lock:

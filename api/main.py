@@ -15,6 +15,7 @@ from flask_sock import Sock
 from api.mock_data import RECORDS, STYLI
 from api.nfc_coordinator import NfcCoordinator, NfcShuttingDown
 from api.playback_status import run_playback_status_publisher, verify_rpm_sensor_ready
+from api.session_history import SessionHistoryTracker
 from api.stylus_hours import StylusHoursTracker
 from lib.nfc import initialize_backend as initialize_nfc_backend
 
@@ -164,6 +165,19 @@ def create_stylus_hours_tracker():
 stylus_hours_tracker = create_stylus_hours_tracker()
 
 
+def create_session_history_tracker():
+    from api.services.db import database
+
+    def record_exists(record_id):
+        database.init_db()
+        return database.record_exists(record_id)
+
+    return SessionHistoryTracker(record_exists, database.save_playback_sessions)
+
+
+session_history_tracker = create_session_history_tracker()
+
+
 def read_pi_temperature_c():
     try:
         with open(TEMPERATURE_PATH, "r") as temp_file:
@@ -240,10 +254,26 @@ def broadcast_message(message, *, exclude_client=None):
     with stylus_hours_tracker.lock:
         messages = [message]
         update_runtime_state(message)
-        try:
-            messages.extend(stylus_hours_tracker.process_message(message))
-        except Exception:
-            app.logger.exception("Failed to persist or track stylus usage")
+        if not shutdown_started.is_set():
+            try:
+                session_history_tracker.process_message(message, runtime_state["current_record_id"])
+            except Exception:
+                app.logger.exception("Failed to track playback history")
+            try:
+                messages.extend(stylus_hours_tracker.process_message(message, persist=False))
+            except Exception:
+                app.logger.exception("Failed to track stylus usage")
+            try:
+                data = message.get("data") or {}
+                if message.get("event") == "status" and data.get("status") == "stop":
+                    flush_pending_stylus_usage()
+                elif stylus_hours_tracker.pending_seconds >= stylus_hours_tracker.flush_interval_seconds:
+                    _save_playback_usage(periodic=True)
+                elif session_history_tracker.checkpoint_due:
+                    if not session_history_tracker.flush_pending():
+                        raise RuntimeError("Pending playback history could not be persisted")
+            except Exception:
+                app.logger.exception("Failed to persist playback usage")
         for outbound_message in messages[1:]:
             update_runtime_state(outbound_message)
 
@@ -396,6 +426,8 @@ def activate_stylus(id):
             stylus = next((s for s in database.get_all_styli() if s["id"] == str(id)), None)
             if stylus is None:
                 return jsonify({"error": "Not found"}), 404
+            if not stylus["active"]:
+                flush_pending_stylus_usage()
             stylus_hours_tracker.activate_stylus(stylus, database.activate_stylus)
         except LookupError:
             return jsonify({"error": "Not found"}), 404
@@ -480,8 +512,8 @@ def shutdown():
     try:
         flush_pending_stylus_usage()
     except Exception:
-        app.logger.exception("Failed to persist stylus usage before shutdown")
-        return jsonify({"error": "Could not save stylus usage; shutdown aborted"}), 500
+        app.logger.exception("Failed to persist playback usage before shutdown")
+        return jsonify({"error": "Could not save playback history or stylus usage; shutdown aborted"}), 500
 
     try:
         subprocess.run(
@@ -508,13 +540,32 @@ def kiosk_exit():
         threading.Timer(0.1, terminate_kiosk_runner).start()
     except Exception:
         app.logger.exception("Failed to request kiosk exit")
-        return jsonify({"error": "Could not save stylus usage or request kiosk exit"}), 500
+        return jsonify({"error": "Could not save playback history or stylus usage, or request kiosk exit"}), 500
     return jsonify({"success": True})
 
 
 def flush_pending_stylus_usage():
-    if stylus_hours_tracker.flush_pending() is False:
-        raise RuntimeError("Pending stylus usage could not be persisted")
+    """Save both usage trackers at an existing application checkpoint."""
+    with stylus_hours_tracker.lock:
+        _save_playback_usage()
+
+
+def _save_playback_usage(*, periodic=False):
+    # Called under the playback lock. Neither failure may skip the other save.
+    errors = []
+    saves = (
+        ("playback history", session_history_tracker.flush_pending),
+        ("stylus usage", stylus_hours_tracker.flush_periodic if periodic else stylus_hours_tracker.flush_pending),
+    )
+    for name, save in saves:
+        try:
+            if save() is False:
+                raise RuntimeError(f"Pending {name} could not be persisted")
+        except Exception as error:
+            app.logger.exception("Failed to save %s", name)
+            errors.append(error)
+    if errors:
+        raise RuntimeError("Playback usage could not be persisted") from errors[0]
 
 
 def shutdown_application():
@@ -524,8 +575,17 @@ def shutdown_application():
         return False
     try:
         if shutdown_started.is_set():
+            # Retry pending writes after failed cleanup without rerunning NFC cleanup.
+            if session_history_tracker.pending_seconds or stylus_hours_tracker.pending_seconds:
+                try:
+                    flush_pending_stylus_usage()
+                    shutdown_result = nfc_coordinator.cleanup_succeeded is True
+                except Exception:
+                    app.logger.exception("Failed to persist playback usage during repeated cleanup")
+                    shutdown_result = False
             return shutdown_result
-        shutdown_started.set()
+        with stylus_hours_tracker.lock:
+            shutdown_started.set()
         deadline = time.monotonic() + NFC_SHUTDOWN_TIMEOUT_SECONDS
         app.logger.info("Application shutdown started (NFC wait limit=%ss)", NFC_SHUTDOWN_TIMEOUT_SECONDS)
         nfc_clean = False
@@ -554,9 +614,9 @@ def shutdown_application():
             flush_pending_stylus_usage()
             persisted = True
         except Exception:
-            app.logger.exception("Failed to persist stylus usage during application cleanup")
+            app.logger.exception("Failed to persist playback usage during application cleanup")
         shutdown_result = nfc_clean and persisted
-        app.logger.info("Application cleanup finished (nfc_clean=%s, stylus_saved=%s)", nfc_clean, persisted)
+        app.logger.info("Application cleanup finished (nfc_clean=%s, usage_saved=%s)", nfc_clean, persisted)
         return shutdown_result
     finally:
         shutdown_cleanup_lock.release()

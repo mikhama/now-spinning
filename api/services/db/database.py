@@ -45,6 +45,13 @@ def init_db():
             CREATE TABLE IF NOT EXISTS status (
                 updated_at TEXT
             );
+            CREATE TABLE IF NOT EXISTS sessions_log (
+                id INTEGER PRIMARY KEY,
+                record_id TEXT NOT NULL CHECK (length(trim(record_id)) > 0),
+                session_started_at TEXT NOT NULL,
+                session_duration_sec INTEGER NOT NULL
+                    CHECK (typeof(session_duration_sec) = 'integer' AND session_duration_sec > 0)
+            );
         """)
         with conn:
             conn.execute("BEGIN IMMEDIATE")
@@ -281,3 +288,55 @@ def set_stylus_hours(stylus_id, hours):
 
 def reset_stylus_hours(stylus_id):
     return set_stylus_hours(stylus_id, 0) is not None
+
+
+def record_exists(record_id):
+    if record_id is None or not str(record_id).strip():
+        return False
+    conn = _get_connection(existing_only=True)
+    try:
+        return conn.execute("SELECT 1 FROM record WHERE id = ?", (str(record_id),)).fetchone() is not None
+    finally:
+        conn.close()
+
+
+def save_playback_sessions(sessions):
+    """Commit the entire ordered batch, or raise without acknowledging any rows."""
+    conn = _get_connection(existing_only=True)
+    try:
+        with conn:
+            conn.executemany(
+                """INSERT INTO sessions_log (record_id, session_started_at, session_duration_sec)
+                   VALUES (?, ?, ?)""",
+                sessions,
+            )
+        return True
+    finally:
+        conn.close()
+
+
+def get_playback_sessions():
+    """Read committed history without creating a database or changing its schema."""
+    conn = sqlite3.connect(Path(DB_PATH).resolve().as_uri() + "?mode=ro", uri=True)
+    try:
+        conn.row_factory = sqlite3.Row
+        rows = conn.execute(
+            """SELECT s.id, s.record_id, s.session_started_at, s.session_duration_sec,
+                      r.artist, r.title AS album
+               FROM sessions_log AS s LEFT JOIN record AS r ON r.id = s.record_id
+               ORDER BY s.session_started_at, s.id"""
+        ).fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+
+def clear_playback_sessions():
+    """Clear only saved history; the caller is responsible for confirmation."""
+    conn = _get_connection(existing_only=True)
+    try:
+        with conn:
+            conn.execute("DELETE FROM sessions_log")
+        return True
+    finally:
+        conn.close()
