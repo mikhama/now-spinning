@@ -43,6 +43,8 @@ var screensaverClockSeconds = 0;
 var screensaverClockSetAt = null;
 var screensaverPaletteUrl = null;
 var screensaverPaletteCache = Object.create(null);
+var powerOptionsOpen = false;
+var powerActionPending = false;
 
 // ---------------------------------------------------------------------------
 // Mode switching
@@ -97,20 +99,104 @@ function requestNfcWrite(recordId, mode) {
     });
 }
 
-function requestKioskExit(event) {
-    if (event) {
-        event.preventDefault();
-    }
-    if (!window.confirm("Exit kiosk mode?")) return;
-
-    fetch("/kiosk/exit", { method: "POST" }).catch(function () {
-        // The kiosk process may stop before the browser receives the response.
-    });
+function isBoardlessPreview() {
+    return document.documentElement.getAttribute("data-boardless-mode") === "true";
 }
 
-function addKioskExitListener(button) {
-    var eventName = window.PointerEvent ? "pointerup" : "click";
-    button.addEventListener(eventName, requestKioskExit);
+function openPowerOptions() {
+    if (powerOptionsOpen || powerActionPending) return;
+    document.getElementById("power-options-dialog").showModal();
+    powerOptionsOpen = true;
+    clearTimeout(screensaverActivationTimer);
+    screensaverActivationTimer = null;
+    hideScreensaver();
+    document.getElementById("power-cancel").focus();
+}
+
+function closePowerOptions() {
+    if (powerActionPending) return;
+    document.getElementById("power-options-dialog").close();
+    finishPowerOptionsClose();
+}
+
+function finishPowerOptionsClose() {
+    // Native close events are queued. Finish synchronously so a quick keyboard
+    // activation can reopen, and ignore an old event if it has already reopened.
+    if (!powerOptionsOpen || document.getElementById("power-options-dialog").open) return;
+    powerOptionsOpen = false;
+    screensaverLastInteractionAt = Date.now();
+    scheduleScreensaverActivation();
+    document.getElementById("kiosk-exit-button").focus();
+}
+
+async function submitPowerAction(action) {
+    if (!powerOptionsOpen || powerActionPending) return;
+    if (action !== "exit" && action !== "shutdown") return;
+
+    closePowerOptions();
+    if (isBoardlessPreview()) return;
+
+    powerActionPending = true;
+    var controller = new AbortController();
+    var timeout = setTimeout(function () { controller.abort(); }, 15000);
+    try {
+        var response = await fetch(action === "exit" ? "/kiosk/exit" : "/shutdown", {
+            method: "POST",
+            signal: controller.signal,
+        });
+        var data = await response.json();
+        if (!response.ok || (data && data.error)) {
+            var failure = new Error((data && data.error) || "Action failed. Please try again.");
+            failure.confirmedFailure = true;
+            throw failure;
+        }
+        if (!data || data.success !== true) throw new Error("Missing acknowledgement");
+    } catch (error) {
+        powerActionPending = false;
+        console.error(error.confirmedFailure ? error.message : "Power action outcome unconfirmed. Check the device before trying again.");
+    } finally {
+        clearTimeout(timeout);
+    }
+}
+
+function setupPowerOptions() {
+    var dialog = document.getElementById("power-options-dialog");
+    var panel = document.getElementById("power-options-panel");
+    var startedOutside = false;
+    function outsidePanel(event) {
+        var bounds = panel.getBoundingClientRect();
+        return event.clientX < bounds.left || event.clientX > bounds.right ||
+            event.clientY < bounds.top || event.clientY > bounds.bottom;
+    }
+    document.getElementById("kiosk-exit-button").addEventListener("click", openPowerOptions);
+    document.getElementById("power-cancel").addEventListener("click", closePowerOptions);
+    document.getElementById("power-exit").addEventListener("click", function () { submitPowerAction("exit"); });
+    document.getElementById("power-shutdown").addEventListener("click", function () { submitPowerAction("shutdown"); });
+    dialog.addEventListener("cancel", function (event) {
+        event.preventDefault();
+        closePowerOptions();
+    });
+    dialog.addEventListener("pointerdown", function (event) {
+        startedOutside = event.target === dialog && outsidePanel(event);
+    });
+    dialog.addEventListener("pointercancel", function () { startedOutside = false; });
+    dialog.addEventListener("click", function (event) {
+        if (startedOutside && event.target === dialog && outsidePanel(event)) closePowerOptions();
+        startedOutside = false;
+    });
+    dialog.addEventListener("keydown", function (event) {
+        if (event.key !== "Tab") return;
+        var first = document.getElementById("power-cancel");
+        var last = document.getElementById("power-shutdown");
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
+        }
+    });
+    dialog.addEventListener("close", finishPowerOptionsClose);
 }
 
 // ---------------------------------------------------------------------------
@@ -578,7 +664,7 @@ function scheduleScreensaverActivation() {
     var deadline = screensaverDeadline();
     clearTimeout(screensaverActivationTimer);
     screensaverActivationTimer = null;
-    if (state.mode !== "play" || deadline === null) return;
+    if (powerOptionsOpen || state.mode !== "play" || deadline === null) return;
     if (!document.getElementById("play-screensaver").hidden) return;
     screensaverActivationTimer = setTimeout(function () {
         screensaverActivationTimer = null;
@@ -856,7 +942,7 @@ function renderScreensaver() {
     var artistChanged;
     var songChanged;
 
-    if (!overlay || state.mode !== "play") {
+    if (powerOptionsOpen || !overlay || state.mode !== "play") {
         hideScreensaver();
         return;
     }
@@ -1747,6 +1833,14 @@ function applyHash() {
     var hash = location.hash.replace(/^#/, "");
     if (!hash) return false;
 
+    if (hash === "power-options") {
+        if (!isBoardlessPreview()) return false;
+        setMode("standby");
+        render();
+        openPowerOptions();
+        return true;
+    }
+
     // Handle re-link as a mode
     var mode;
     var rest;
@@ -1841,7 +1935,7 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 
     // Button event listeners
-    addKioskExitListener(document.getElementById("kiosk-exit-button"));
+    setupPowerOptions();
 
     document.getElementById("btn-side-standby").addEventListener("click", switchSide);
 

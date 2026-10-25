@@ -7,9 +7,10 @@
     <link rel="stylesheet" href="/style.css">
 </head>
 <body>
+    <div id="app-screen">
     <header id="top-bar">
         <div id="mode-label">Mode: Standby</div>
-        <button id="kiosk-exit-button" type="button" aria-label="Exit kiosk mode"></button>
+        <button id="kiosk-exit-button" type="button" aria-label="Power options" aria-haspopup="dialog" aria-controls="power-options-dialog"></button>
         <div id="stylus-info">
             <div id="stylus-bar-compact" class="stylus-bar stylus-bar--compact">
                 <div id="stylus-bar-compact-fill" class="stylus-bar__fill"></div>
@@ -275,6 +276,20 @@
         </div>
         <button id="screensaver-dismiss" type="button" aria-label="Return to Play view"></button>
     </section>
+
+    <dialog id="power-options-dialog" aria-labelledby="power-options-description" tabindex="-1">
+        <div id="power-options-panel" class="power-options-panel">
+            <div class="power-options-copy">
+                <p id="power-options-description">Are you sure you want to exit?</p>
+            </div>
+            <div class="power-options-actions">
+                <button id="power-cancel" class="power-button" type="button" autofocus>Cancel</button>
+                <button id="power-exit" class="power-button" type="button">Exit</button>
+                <button id="power-shutdown" class="power-button" type="button">Shutdown</button>
+            </div>
+        </div>
+    </dialog>
+    </div>
 
     <script src="/app.js"></script>
 </body>

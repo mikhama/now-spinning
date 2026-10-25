@@ -89,7 +89,8 @@ class StylusHoursTracker:
         with self.lock:
             flush_seconds = self.pending_seconds
         if flush_seconds > 0:
-            self._flush_seconds(flush_seconds)
+            return self._flush_seconds(flush_seconds)
+        return True
 
     def reset_stylus(self, stylus_id):
         with self.lock:

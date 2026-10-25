@@ -30,6 +30,35 @@ To run the app in kiosk mode on Pi:
 ./bin/run_kiosk.sh
 ```
 
+### Power options
+
+Tap the invisible area between the mode label and stylus information in the top
+bar to open a centered **Are you sure you want to exit?** dialog within the app
+screen. It offers **Cancel**, **Exit**, and **Shutdown**.
+Exit closes the kiosk runner, API, and Chromium; Shutdown requests an orderly
+Raspberry Pi poweroff. Selecting either action closes the dialog immediately,
+without showing preview, progress, or success messages. Pending
+stylus hours are saved first; if saving fails, the action is aborted. Cancel,
+Escape, and touching the backdrop dismiss the idle dialog. The playback
+screensaver pauses while it is open and waits a fresh ten seconds after dismissal.
+
+Shutdown requires Raspberry Pi OS with systemd, a loopback request, boardless
+mode disabled, and `KIOSK_SHUTDOWN_ENABLED=true` (set by the kiosk script).
+The kiosk user must be allowed to run the exact poweroff command without a
+password prompt. On the Pi, use `sudo visudo -f /etc/sudoers.d/now-spinning-poweroff`
+and add the following rule, replacing `kioskuser` with the actual kiosk username:
+
+```sudoers
+kioskuser ALL=(root) NOPASSWD: /usr/bin/systemctl poweroff
+```
+
+The API runs the fixed argument list `sudo -n /usr/bin/systemctl poweroff`
+without a shell, with a five-second timeout. See the
+[systemctl poweroff documentation](https://www.freedesktop.org/software/systemd/man/latest/systemctl.html#poweroff).
+Disabled actions and command failures return JSON errors. If the connection is
+lost before acknowledgement, the console records an unconfirmed outcome and
+the app does not retry automatically; check the device before trying again.
+
 ### Start automatically on boot
 
 On Raspberry Pi OS using the labwc desktop, open the desktop autostart file:
@@ -98,6 +127,34 @@ To debug all views:
 - http://127.0.0.1:5000/#re-link
 - http://127.0.0.1:5000/#stylus
 - http://127.0.0.1:5000/#stylus-error
+- http://127.0.0.1:5000/#power-options
+
+The power-options debug URL opens the dialog in boardless mode. Exit and
+Shutdown both close it immediately without a message. Both simulate locally
+and send no destructive requests, including when
+the dialog is opened with the hidden trigger. The API rejects both real actions
+in boardless mode even if kiosk shutdown is enabled.
+
+Power-options verification:
+
+```bash
+node --test tests/ui_app_*.test.js
+python -m pytest -q tests/test_power_api.py tests/test_linking_api.py tests/test_stylus_hours.py
+# With the boardless server running in another terminal:
+playwright-cli -s=power-options open 'http://127.0.0.1:5000/#power-options' --headed --browser=chrome
+playwright-cli -s=power-options show
+playwright-cli -s=power-options run-code --filename=tests/power_options.browser.js
+```
+
+The Python tests mock process termination and poweroff. The browser checks
+intercept destructive endpoints while testing requests and errors, exercise
+touch/keyboard/focus/screensaver behavior, and verify wide-browser, boardless,
+and 800×480 layouts. Pi sizing
+uses a browser-only 16px root-font override; application font sizing is unchanged.
+Actual Pi poweroff remains a hardware acceptance check: with passwordless
+permission configured, select Shutdown during playback and verify orderly poweroff
+and that the last stylus usage was saved after the next boot. Verify Exit on the
+Pi closes Chromium and returns to the desktop.
 
 To compare screensaver fonts, weights, sizes, and letter spacing, open [the font playground](exp/font-playground.html) in a browser. It lists the 68 families from the linked Cyrillic + Latin Serif/Slab Google Fonts filter and provides CSS you can copy for both lines. The app fonts, including Roboto Serif, work offline; other Google Fonts choices need an internet connection.
 

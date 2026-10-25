@@ -1,8 +1,11 @@
 import atexit
+import ipaddress
 import json
 import logging
 import os
 import signal
+import subprocess
+import sys
 import threading
 import time
 
@@ -425,6 +428,29 @@ def sync():
 
 @app.post("/shutdown")
 def shutdown():
+    try:
+        loopback = ipaddress.ip_address(request.remote_addr or "").is_loopback
+    except ValueError:
+        loopback = False
+    if not is_kiosk_shutdown_enabled() or is_boardless_mode() or sys.platform != "linux" or not loopback:
+        return jsonify({"error": "Shutdown is disabled; requires a local Linux kiosk outside boardless mode"}), 403
+
+    try:
+        flush_pending_stylus_usage()
+    except Exception:
+        app.logger.exception("Failed to persist stylus usage before shutdown")
+        return jsonify({"error": "Could not save stylus usage; shutdown aborted"}), 500
+
+    try:
+        subprocess.run(
+            ["sudo", "-n", "/usr/bin/systemctl", "poweroff"],
+            check=True,
+            timeout=5,
+            capture_output=True,
+        )
+    except (OSError, subprocess.SubprocessError):
+        app.logger.exception("Failed to request system poweroff")
+        return jsonify({"error": "Could not request poweroff; check the kiosk user's poweroff permission"}), 500
     return jsonify({"success": True})
 
 
@@ -432,14 +458,21 @@ def shutdown():
 def kiosk_exit():
     if not is_kiosk_shutdown_enabled():
         return jsonify({"error": "Kiosk shutdown is disabled"}), 403
+    if is_boardless_mode():
+        return jsonify({"error": "Kiosk exit is disabled in boardless mode"}), 403
 
-    flush_pending_stylus_usage()
-    threading.Timer(0.1, terminate_kiosk_runner).start()
+    try:
+        flush_pending_stylus_usage()
+        threading.Timer(0.1, terminate_kiosk_runner).start()
+    except Exception:
+        app.logger.exception("Failed to request kiosk exit")
+        return jsonify({"error": "Could not save stylus usage or request kiosk exit"}), 500
     return jsonify({"success": True})
 
 
 def flush_pending_stylus_usage():
-    stylus_hours_tracker.flush_pending()
+    if stylus_hours_tracker.flush_pending() is False:
+        raise RuntimeError("Pending stylus usage could not be persisted")
 
 
 def shutdown_signal_handler(signum, frame):
