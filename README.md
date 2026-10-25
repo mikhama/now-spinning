@@ -190,6 +190,50 @@ An NFC reading error appears only before the first successful tag scan. Later re
 
 ## Utils
 
+### Stylus hours
+
+The local database at `data/now-spinning.db` holds each stylus's total usage.
+Use Python 3's built-in SQLite support to display, set, or reset it from the
+project directory; these commands do not need a running server or the app's
+Python dependencies.
+
+**Keep the app stopped while using this tool. It has no application lock.**
+Running it during playback can let pending, unsaved usage change the total
+you specify. Follow this procedure on the Pi:
+
+1. Exit the app through its normal **Exit** control so pending usage is saved.
+2. Wait until the app has stopped.
+3. List saved styli to find the ID:
+   ```bash
+   ./bin/stylus-hours list
+   ```
+4. Replace stylus `1`'s total with `97.3` hours, or reset it to zero:
+   ```bash
+   ./bin/stylus-hours set 1 97.3
+   # Or, to reset:
+   ./bin/stylus-hours reset 1
+   ```
+5. Start the app with `./bin/run_kiosk.sh`. It will load the saved total.
+
+`set` replaces the total; it does not add hours. Each successful change displays
+the previous and new totals, for example:
+
+```text
+Stylus 1: 102.4 hours -> 97.3 hours
+```
+
+Hours must be finite and zero or more. A missing database or stylus, invalid
+hours, or a failed save produces an error and a nonzero exit status. The tool
+does not create a database or missing stylus.
+
+Collection sync ignores `distance_hours` from `my-musical-journey`, starts new
+styli at zero, and preserves existing local totals. You can remove
+`"distance_hours": 97.3` from that repository's stylus data; existing Pi databases
+retain their hours. On a new Pi, sync the collection first, then stop the app
+and use `set` to enter the initial total before restarting.
+
+### NFC
+
 To read NFC tag:
 ```bash
 python -m exp.nfc.nfc_read

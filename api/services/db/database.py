@@ -1,14 +1,23 @@
+import math
 import os
 import sqlite3
+from pathlib import Path
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))), "data", "now-spinning.db")
 
 
-def _get_connection():
-    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA synchronous=FULL")
+def _get_connection(*, existing_only=False):
+    if existing_only:
+        conn = sqlite3.connect(Path(DB_PATH).resolve().as_uri() + "?mode=rw", uri=True)
+    else:
+        os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
+        conn = sqlite3.connect(DB_PATH)
+    try:
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA synchronous=FULL")
+    except sqlite3.Error:
+        conn.close()
+        raise
     return conn
 
 
@@ -60,7 +69,7 @@ def upsert_styli(styli_list):
             active = s.get("active", 1)
             conn.execute(
                 "INSERT OR IGNORE INTO stylus (id, name, distance_hours, capacity_min_hours, capacity_max_hours, active) VALUES (?, ?, ?, ?, ?, ?)",
-                (s["id"], s["name"], s.get("distance_hours", 0), cap_min, cap_max, active),
+                (s["id"], s["name"], 0, cap_min, cap_max, active),
             )
         conn.commit()
     finally:
@@ -108,8 +117,8 @@ def get_all_records():
         conn.close()
 
 
-def get_all_styli():
-    conn = _get_connection()
+def get_all_styli(*, existing_only=False):
+    conn = _get_connection(existing_only=existing_only)
     try:
         conn.row_factory = sqlite3.Row
         rows = conn.execute(
@@ -182,11 +191,32 @@ def is_record_linked(record_id):
         conn.close()
 
 
-def reset_stylus_hours(stylus_id):
-    conn = _get_connection()
+def set_stylus_hours(stylus_id, hours):
+    """Replace a saved total; return (previous, new), or None for a missing ID."""
     try:
-        cursor = conn.execute("UPDATE stylus SET distance_hours = 0 WHERE id = ?", (str(stylus_id),))
-        conn.commit()
-        return cursor.rowcount > 0
+        hours = float(hours)
+    except (TypeError, ValueError, OverflowError) as error:
+        raise ValueError("Hours must be finite and zero or more") from error
+    if not math.isfinite(hours) or hours < 0:
+        raise ValueError("Hours must be finite and zero or more")
+
+    conn = _get_connection(existing_only=True)
+    try:
+        with conn:
+            conn.execute("BEGIN IMMEDIATE")
+            row = conn.execute(
+                "SELECT distance_hours FROM stylus WHERE id = ?", (str(stylus_id),)
+            ).fetchone()
+            if row is None:
+                return None
+            conn.execute(
+                "UPDATE stylus SET distance_hours = ? WHERE id = ?",
+                (hours, str(stylus_id)),
+            )
+        return row[0], hours
     finally:
         conn.close()
+
+
+def reset_stylus_hours(stylus_id):
+    return set_stylus_hours(stylus_id, 0) is not None

@@ -1,6 +1,9 @@
+import io
 import json
 import os
 import signal
+import subprocess
+import sys
 from pathlib import Path
 import tempfile
 import unittest
@@ -10,6 +13,7 @@ from unittest.mock import mock_open, patch
 import api.main as api_main
 from api.main import app, build_initial_events, is_boardless_mode, runtime_state
 from api.services.db import database
+from api.stylus_hours_cli import main as stylus_hours_command
 
 
 class LinkingApiTestCase(unittest.TestCase):
@@ -167,6 +171,87 @@ class LinkingApiTestCase(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.get_json()[0]["hours"], 0)
+
+    def sync_local_collection(self, styli):
+        repo = Path(self.tmpdir.name) / "collection-repo"
+        albums = repo / "data" / "albums"
+        albums.mkdir(parents=True, exist_ok=True)
+        (repo / "data" / "styli.json").write_text(json.dumps(styli))
+        (repo / "data" / "collection.json").write_text(json.dumps([
+            {"id": "01", "release_id": "123", "master_id": "456"},
+        ]))
+        (albums / "123.json").write_text(json.dumps({
+            "title": "Test album", "artist": "Test artist", "sides": [],
+        }))
+        with patch("api.main.TMP_REPO_DIR", str(repo)):
+            with patch("api.main.IMAGES_DEST", str(Path(self.tmpdir.name) / "images")):
+                with patch("api.services.sync.git_sync.clone_or_pull") as download:
+                    response = self.client.post("/sync")
+                    body = response.get_data(as_text=True)
+                    download.assert_called_once_with(api_main.REPO_URL, str(repo))
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('"status": "Sync complete"', body)
+        self.assertNotIn("Sync error", body)
+
+    def test_collection_sync_preserves_local_totals_and_ignores_remote_hours(self):
+        self.insert_stylus("1", distance_hours=102.4)  # Existing legacy total.
+        self.insert_stylus("2", distance_hours=25.5, active=0)
+        self.insert_stylus("3", distance_hours=30, active=0)
+        self.insert_stylus("4", distance_hours=40, active=0)
+        database.increment_stylus_hours("2", 0.25)
+        database.set_stylus_hours("3", 97.3)
+        database.reset_stylus_hours("4")
+
+        remote = [
+            {"id": str(number), "name": "Remote stylus", "distance_hours": 999}
+            for number in range(1, 6)
+        ] + [{"id": "6", "name": "New stylus without hours"}]
+        self.sync_local_collection(remote)
+        expected = {"1": 102.4, "2": 25.75, "3": 97.3, "4": 0, "5": 0, "6": 0}
+        self.assertEqual({s["id"]: s["hours"] for s in database.get_all_styli()}, expected)
+
+        for stylus in remote:
+            stylus.pop("distance_hours", None)
+        self.sync_local_collection(remote)
+        self.assertEqual({s["id"]: s["hours"] for s in database.get_all_styli()}, expected)
+
+    def test_fresh_app_process_loads_offline_total_after_sync(self):
+        self.insert_stylus("1", distance_hours=102.4)
+        # The child imports the actual app and creates a fresh tracker against
+        # this disposable database. No server, hardware, or credentials are used.
+        restart_check = """
+import json
+import sys
+from api.services.db import database
+database.DB_PATH = sys.argv[1]
+from api.main import app, create_stylus_hours_tracker
+tracker = create_stylus_hours_tracker()
+tracker.process_play('00:00')
+print(json.dumps({
+    'styli': app.test_client().get('/styli').get_json(),
+    'tracker_hours': tracker.current_event()['data']['hours'],
+}))
+"""
+        for arguments, expected in ((["set", "1", "97.3123456789"], 97.3123456789),
+                                    (["reset", "1"], 0)):
+            with self.subTest(arguments=arguments):
+                with patch("sys.stdout", new=io.StringIO()):
+                    self.assertEqual(stylus_hours_command(arguments), 0)
+                self.sync_local_collection([
+                    {"id": "1", "name": "Remote stylus", "distance_hours": 999},
+                ])
+                restarted = subprocess.run(
+                    [sys.executable, "-c", restart_check, database.DB_PATH],
+                    cwd=Path(__file__).resolve().parent.parent,
+                    env={**os.environ, "BOARDLESS_MODE": "true"},
+                    capture_output=True,
+                    text=True,
+                    timeout=30,
+                )
+                self.assertEqual(restarted.returncode, 0, restarted.stderr)
+                saved = json.loads(restarted.stdout)
+                self.assertEqual(saved["styli"][0]["hours"], expected)
+                self.assertEqual(saved["tracker_hours"], expected)
 
     def test_initial_events_do_not_emit_default_stylus_hours(self):
         runtime_state["stylus_hours"] = {}
