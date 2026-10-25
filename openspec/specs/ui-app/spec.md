@@ -58,22 +58,27 @@ The UI SHALL display a persistent top bar across all modes with `background: var
 - **THEN** the top bar right side SHALL show "59 °C" after the stylus bar, in DM Mono ink-mute color
 
 ### Requirement: Hidden kiosk exit control
-The UI SHALL provide an invisible touch target in the persistent top bar between the mode label and stylus info. The target SHALL take approximately half the horizontal size of the stylus info area, SHALL NOT alter the visible top-bar appearance, and SHALL ask for browser-native confirmation before requesting kiosk exit.
+The UI SHALL retain the invisible touch target in the persistent top bar between the mode label and stylus info, without changing its visible appearance or sizing. Touch or keyboard activation SHALL open a native HTML dialog inside the app screen with the centered question `Are you sure you want to exit?` and buttons ordered Cancel, Exit, Shutdown. The dialog SHALL have no visible heading or status text. Cancel SHALL receive initial focus, keyboard focus SHALL remain within the open modal, and dismissal SHALL restore focus to the trigger.
+
+#### Scenario: Hidden control opens power options
+- **WHEN** the hidden control is activated by touch or keyboard
+- **THEN** the power dialog SHALL open and focus Cancel without sending an action request
+- **AND** the invisible control SHALL retain no visible text, border, or background
+
+#### Scenario: Safe dismissal
+- **WHEN** the user activates Cancel, presses Escape, or clicks the backdrop while no action is pending
+- **THEN** the dialog SHALL close, restore focus to the trigger, and send no destructive request
+- **AND** clicking within the dialog SHALL NOT dismiss it
+
+#### Scenario: Focus containment
+- **WHEN** the user navigates with Tab or Shift+Tab while the dialog is open
+- **THEN** focus SHALL remain inside the dialog
 
 #### Scenario: Hidden exit control is present
 - **WHEN** the UI loads
 - **THEN** the top bar SHALL contain an invisible interactive control between the mode label and stylus info
+- **AND** the control SHALL take approximately half the horizontal size of the stylus info area
 - **AND** the control SHALL NOT render visible text, border, or background
-
-#### Scenario: User cancels kiosk exit
-- **WHEN** the hidden exit control is activated
-- **AND** the user cancels the browser-native confirmation dialog
-- **THEN** the UI SHALL NOT send a kiosk exit request
-
-#### Scenario: User confirms kiosk exit
-- **WHEN** the hidden exit control is activated
-- **AND** the user confirms the browser-native confirmation dialog
-- **THEN** the UI SHALL send a `POST` request to the kiosk exit endpoint
 
 ### Requirement: Five application modes
 The UI SHALL support six modes: Standby, Play, Link, Re-Link, Stylus, and Sync. Mode switching via the Mode button SHALL cycle through: standby → sync → link → re-link → stylus → standby. Play mode SHALL only be reachable via WebSocket `status` events. Hash-based dev routing SHALL remain functional.
@@ -588,3 +593,31 @@ When Play mode is active and no valid current record can be resolved, the UI SHA
 - **WHEN** play mode is active and a valid current record later becomes available
 - **THEN** the play view SHALL switch back to the normal now-playing layout
 - **AND** the play action buttons SHALL become visible again
+
+### Requirement: Immediate power action dismissal
+Exit SHALL immediately send `POST /kiosk/exit` and Shutdown SHALL immediately send `POST /shutdown`, with no second confirmation. Selecting either action SHALL immediately close the modal without showing preview, progress, or success text. Repeated submissions and reopening SHALL be blocked while the real action is pending or accepted. Accepted responses SHALL contain `{ "success": true }`. HTTP/JSON failures SHALL release the pending guard and log a diagnostic without reopening the modal. Connection loss, invalid acknowledgement, or client timeout SHALL log an unconfirmed outcome and SHALL NOT automatically retry.
+
+#### Scenario: Action is pending or accepted
+- **WHEN** either real action is submitted
+- **THEN** the modal SHALL close immediately and exactly one request SHALL be sent to its endpoint
+- **AND** pending or accepted actions SHALL prevent duplicate submissions and reopening without visible status text
+
+#### Scenario: Request fails
+- **WHEN** an action returns an error
+- **THEN** the pending guard SHALL be released and an error diagnostic SHALL be logged without reopening the dialog
+
+#### Scenario: Connection loss
+- **WHEN** the request loses its connection, times out, or cannot yield a valid acknowledgement
+- **THEN** the UI SHALL log the outcome as unconfirmed and release the pending guard without reopening or automatically retrying
+
+### Requirement: Boardless power preview
+In boardless mode, `/#power-options` SHALL open the dialog. Both actions SHALL simulate locally, with no request to `/kiosk/exit` or `/shutdown`, regardless of whether the modal was opened by hash or trigger.
+
+#### Scenario: Preview actions
+- **WHEN** Exit or Shutdown is selected in boardless mode
+- **THEN** the dialog SHALL close immediately without showing any preview message
+- **AND** the trigger SHALL remain usable without a destructive request
+
+#### Scenario: Board mode debug hash
+- **WHEN** `#power-options` is used without the boardless marker
+- **THEN** the UI SHALL NOT automatically open the dialog
